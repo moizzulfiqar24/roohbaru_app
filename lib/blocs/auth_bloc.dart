@@ -12,12 +12,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc(this._authService) : super(AuthInitial()) {
     on<AppStarted>(_onAppStarted);
     on<GoogleSignInRequested>(_onGoogleSignIn);
+    on<EmailSignInRequested>(_onEmailSignIn);
+    on<EmailSignUpRequested>(_onEmailSignUp);
     on<SignOutRequested>(_onSignOut);
   }
 
   Future<void> _onAppStarted(AppStarted event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _authService.currentUser;
     if (user != null) {
       emit(AuthAuthenticated(user));
     } else {
@@ -30,17 +32,63 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       log('Google sign-in initiated');
-      final userCred = await _authService.loginWithGoogle();
-      if (userCred?.user != null) {
-        log("User signed in: ${userCred!.user!.uid}");
-        emit(AuthAuthenticated(userCred.user!));
+      final cred = await _authService.loginWithGoogle();
+      if (cred?.user != null) {
+        log('User signed in: ${cred!.user!.uid}');
+        emit(AuthAuthenticated(cred.user!));
       } else {
-        emit(AuthError("Google sign-in was cancelled"));
+        emit(AuthError('Google sign-in cancelled'));
         emit(AuthUnauthenticated());
       }
     } catch (e, st) {
-      log("Google sign-in failed: $e\n$st");
-      emit(AuthError("Google sign-in failed. Please try again."));
+      log('Google sign-in error: $e\n$st');
+      emit(AuthError('Google sign-in failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onEmailSignIn(
+      EmailSignInRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      final user = await _authService.loginUserWithEmailAndPassword(
+        event.email.trim(),
+        event.password,
+      );
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(AuthError('Invalid email or password'));
+        emit(AuthUnauthenticated());
+      }
+    } catch (e, st) {
+      log('Email sign-in error: $e\n$st');
+      emit(AuthError('Email sign-in failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onEmailSignUp(
+      EmailSignUpRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      final user = await _authService.createUserWithEmailAndPassword(
+        event.email.trim(),
+        event.password,
+      );
+      if (user != null) {
+        // optionally set display name
+        await user.updateDisplayName(event.name.trim());
+        await user.reload();
+        final updated = _authService.currentUser!;
+        emit(AuthAuthenticated(updated));
+      } else {
+        emit(AuthError('Sign-up failed'));
+        emit(AuthUnauthenticated());
+      }
+    } catch (e, st) {
+      log('Email sign-up error: $e\n$st');
+      emit(AuthError('Sign-up failed'));
       emit(AuthUnauthenticated());
     }
   }
@@ -51,9 +99,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       await _authService.signOut();
       emit(AuthUnauthenticated());
-    } catch (e) {
-      log("Sign-out failed: $e");
-      emit(AuthError("Sign-out failed. Please try again."));
+    } catch (e, st) {
+      log('Sign-out error: $e\n$st');
+      emit(AuthError('Sign-out failed'));
+      emit(AuthUnauthenticated());
     }
   }
 }

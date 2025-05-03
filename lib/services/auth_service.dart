@@ -6,21 +6,23 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
+  User? get currentUser => _auth.currentUser;
+
   Future<UserCredential?> loginWithGoogle() async {
     try {
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        log("Google sign-in canceled by user");
+        log('Google sign-in cancelled by user');
         return null;
       }
       final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
+      final cred = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      return await _auth.signInWithCredential(credential);
+      return _auth.signInWithCredential(cred);
     } catch (e, st) {
-      log("loginWithGoogle error: $e\n$st");
+      log('loginWithGoogle error: $e\n$st');
       rethrow;
     }
   }
@@ -34,7 +36,7 @@ class AuthService {
       );
       return cred.user;
     } catch (e) {
-      log("Email signup failed: $e");
+      log('Email signup failed: $e');
       return null;
     }
   }
@@ -48,7 +50,7 @@ class AuthService {
       );
       return cred.user;
     } catch (e) {
-      log("Email login failed: $e");
+      log('Email login failed: $e');
       return null;
     }
   }
@@ -58,7 +60,7 @@ class AuthService {
       await _googleSignIn.signOut();
       await _auth.signOut();
     } catch (e) {
-      log("Sign-out error: $e");
+      log('Sign-out error: $e');
     }
   }
 }

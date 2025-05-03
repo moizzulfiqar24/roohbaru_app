@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../services/auth_service.dart';
-import '../widgets/button.dart';
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
+import '../blocs/auth_state.dart';
 import '../widgets/textfield.dart';
-import 'login_screen.dart';
-import 'home_screen.dart';
+import '../widgets/button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -14,81 +15,91 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _auth = AuthService();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Column(
-          children: [
-            CustomTextField(
-              label: 'Name',
-              hint: 'Enter your name',
-              controller: _nameController,
+      body: SafeArea(
+        child: BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthAuthenticated) {
+              // back to login (root) → wrapper will rebuild to HomeScreen
+              Navigator.of(context).pop();
+            } else if (state is AuthError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: theme.colorScheme.error,
+                ),
+              );
+            }
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CustomTextField(
+                  label: 'Name',
+                  hint: 'Enter your name',
+                  controller: _nameCtrl,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Email',
+                  hint: 'Enter your email',
+                  controller: _emailCtrl,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Password',
+                  hint: 'Enter your password',
+                  isPassword: true,
+                  controller: _passwordCtrl,
+                ),
+                const SizedBox(height: 24),
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (context, state) {
+                    if (state is AuthLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return CustomButton(
+                      label: 'Create account',
+                      onPressed: () {
+                        context.read<AuthBloc>().add(
+                              EmailSignUpRequested(
+                                name: _nameCtrl.text,
+                                email: _emailCtrl.text,
+                                password: _passwordCtrl.text,
+                              ),
+                            );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Already have an account? Log in'),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Email',
-              hint: 'Enter your email',
-              controller: _emailController,
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Password',
-              hint: 'Enter your password',
-              controller: _passwordController,
-              isPassword: true,
-            ),
-            const SizedBox(height: 24),
-            CustomButton(
-              label: 'Sign Up',
-              onPressed: _isLoading ? null : _signup,
-              isLoading: _isLoading,
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              ),
-              child: const Text('Already have an account? Log in'),
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  Future<void> _signup() async {
-    setState(() => _isLoading = true);
-    final user = await _auth.createUserWithEmailAndPassword(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
-    setState(() => _isLoading = false);
-
-    if (user != null) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign up failed. Please try again.')),
-      );
-    }
   }
 }
