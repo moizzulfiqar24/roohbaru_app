@@ -1,106 +1,96 @@
-import 'dart:developer';
-import '../services/auth_service.dart';
-import 'signup_screen.dart';
-import 'home_screen.dart';
-import '../widgets/button.dart';
-import '../widgets/textfield.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class LoginScreen extends StatefulWidget {
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
+import '../blocs/auth_state.dart';
+
+class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final _auth = AuthService();
-
-  bool _isLoading = false;
-
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-
-  @override
-  void dispose() {
-    super.dispose();
-    _email.dispose();
-    _password.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25),
-        child: Column(
-          children: [
-            const Spacer(),
-            const Text("Login",
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 50),
-            CustomTextField(
-              hint: "Enter Email",
-              label: "Email",
-              controller: _email,
+      body: SafeArea(
+        child: BlocListener<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state is AuthError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor:
+                      theme.colorScheme.error, // was theme.errorColor
+                ),
+              );
+            }
+          },
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Journal',
+                    style: theme.textTheme.headlineLarge
+                        ?.copyWith(fontSize: 32), // was headline5
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your personal daily diary',
+                    style: theme.textTheme.bodyLarge
+                        ?.copyWith(color: Colors.grey[600]), // was bodyText2
+                  ),
+                  const SizedBox(height: 48),
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (context, state) {
+                      if (state is AuthLoading) {
+                        return const CircularProgressIndicator();
+                      }
+                      return ElevatedButton.icon(
+                        onPressed: () => context
+                            .read<AuthBloc>()
+                            .add(GoogleSignInRequested()),
+                        icon: Image.asset(
+                          'assets/images/google.png',
+                          height: 24,
+                          width: 24,
+                        ),
+                        label: const Text(
+                          'Sign in with Google',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white, // was `primary`
+                          foregroundColor: Colors.black, // was `onPrimary`
+                          elevation: 2,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'By signing in, you agree to our Terms & Conditions',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium // was bodyText2
+                        ?.copyWith(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            CustomTextField(
-              hint: "Enter Password",
-              label: "Password",
-              controller: _password,
-            ),
-            const SizedBox(height: 30),
-            CustomButton(
-              label: "Login",
-              onPressed: _login,
-            ),
-            const SizedBox(height: 5),
-            _isLoading ? const CircularProgressIndicator() : CustomButton(
-              label: "Sign in with Google",
-              onPressed: () async {
-                setState(() {
-                  _isLoading = true;
-                }); 
-                await _auth.loginWithGoogle();
-                setState(() {
-                  _isLoading = false;
-                }); 
-              },
-            ),
-            const SizedBox(height: 5),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text("Already have an account? "),
-              InkWell(
-                onTap: () => goToSignup(context),
-                child:
-                    const Text("Signup", style: TextStyle(color: Colors.red)),
-              )
-            ]),
-            const Spacer()
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  goToSignup(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SignupScreen()),
-      );
-
-  goToHome(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-
-  _login() async {
-    final user =
-        await _auth.loginUserWithEmailAndPassword(_email.text, _password.text);
-
-    if (user != null) {
-      log("User Logged In");
-      goToHome(context);
-    }
   }
 }

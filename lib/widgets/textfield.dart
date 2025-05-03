@@ -1,30 +1,40 @@
 import 'package:flutter/material.dart';
 
 class CustomTextField extends StatelessWidget {
-  const CustomTextField(
-      {super.key,
-      required this.hint,
-      required this.label,
-      this.controller,
-      this.isPassword = false});
   final String hint;
   final String label;
   final bool isPassword;
   final TextEditingController? controller;
 
+  const CustomTextField({
+    super.key,
+    required this.hint,
+    required this.label,
+    this.isPassword = false,
+    this.controller,
+  });
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return TextField(
-      obscureText: isPassword,
       controller: controller,
+      obscureText: isPassword,
       decoration: InputDecoration(
-          hintText: hint,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
-          label: Text(label),
-          border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: const BorderSide(color: Colors.grey, width: 1))),
+        labelText: label,
+        hintText: hint,
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: theme.primaryColor),
+        ),
+      ),
     );
   }
 }

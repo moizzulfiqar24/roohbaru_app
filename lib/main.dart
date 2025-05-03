@@ -1,14 +1,23 @@
-import 'dart:async';
-import './screens/login_screen.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'services/auth_service.dart';
+import 'blocs/auth_bloc.dart';
+import 'blocs/auth_event.dart';
+import 'blocs/auth_state.dart';
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp();
-
-  runApp(const MyApp());
+  runApp(
+    BlocProvider<AuthBloc>(
+      create: (_) => AuthBloc(AuthService())..add(AppStarted()),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -16,7 +25,38 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-        debugShowCheckedModeBanner: false, home: LoginScreen());
+    return MaterialApp(
+      title: 'Journal App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.indigo,
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: IconThemeData(color: Colors.black),
+        ),
+        textTheme: const TextTheme(
+          // old `headline5` → new `headlineLarge`
+          headlineLarge: TextStyle(fontWeight: FontWeight.bold),
+          // old `bodyText2` → new `bodyLarge`
+          bodyLarge: TextStyle(color: Colors.black87),
+        ),
+      ),
+      home: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is AuthAuthenticated) {
+            return HomeScreen(user: state.user);
+          } else if (state is AuthLoading) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          } else {
+            return const LoginScreen();
+          }
+        },
+      ),
+    );
   }
 }

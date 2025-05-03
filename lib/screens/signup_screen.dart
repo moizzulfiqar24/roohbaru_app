@@ -1,10 +1,10 @@
-import 'dart:developer';
+import 'package:flutter/material.dart';
+
 import '../services/auth_service.dart';
-import 'login_screen.dart';
-import 'home_screen.dart';
 import '../widgets/button.dart';
 import '../widgets/textfield.dart';
-import 'package:flutter/material.dart';
+import 'login_screen.dart';
+import 'home_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -15,86 +15,80 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _auth = AuthService();
-
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
-    _name.dispose();
-    _email.dispose();
-    _password.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Sign Up'), centerTitle: true),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 25),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Column(
           children: [
-            const Spacer(),
-            const Text("Signup",
-                style: TextStyle(fontSize: 40, fontWeight: FontWeight.w500)),
-            const SizedBox(
-              height: 50,
-            ),
             CustomTextField(
-              hint: "Enter Name",
-              label: "Name",
-              controller: _name,
+              label: 'Name',
+              hint: 'Enter your name',
+              controller: _nameController,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             CustomTextField(
-              hint: "Enter Email",
-              label: "Email",
-              controller: _email,
+              label: 'Email',
+              hint: 'Enter your email',
+              controller: _emailController,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             CustomTextField(
-              hint: "Enter Password",
-              label: "Password",
+              label: 'Password',
+              hint: 'Enter your password',
+              controller: _passwordController,
               isPassword: true,
-              controller: _password,
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 24),
             CustomButton(
-              label: "Signup",
-              onPressed: _signup,
+              label: 'Sign Up',
+              onPressed: _isLoading ? null : _signup,
+              isLoading: _isLoading,
             ),
-            const SizedBox(height: 5),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Text("Already have an account? "),
-              InkWell(
-                onTap: () => goToLogin(context),
-                child: const Text("Login", style: TextStyle(color: Colors.red)),
-              )
-            ]),
-            const Spacer()
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              ),
+              child: const Text('Already have an account? Log in'),
+            ),
           ],
         ),
       ),
     );
   }
 
-  goToLogin(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
+  Future<void> _signup() async {
+    setState(() => _isLoading = true);
+    final user = await _auth.createUserWithEmailAndPassword(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+    setState(() => _isLoading = false);
 
-  goToHome(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-
-  _signup() async {
-    final user =
-        await _auth.createUserWithEmailAndPassword(_email.text, _password.text);
     if (user != null) {
-      log("User Created Succesfully");
-      goToHome(context);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign up failed. Please try again.')),
+      );
     }
   }
 }

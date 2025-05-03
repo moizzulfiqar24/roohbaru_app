@@ -1,40 +1,52 @@
-import '../services/auth_service.dart';
-import 'login_screen.dart';
-import '../widgets/button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  final User user;
+  const HomeScreen({super.key, required this.user});
 
   @override
   Widget build(BuildContext context) {
-    final auth = AuthService();
+    final photoUrl = user.photoURL;
+    final displayName = user.displayName ?? user.email ?? 'User';
+
     return Scaffold(
-      body: Align(
-        alignment: Alignment.center,
+      appBar: AppBar(
+        title: Text('Welcome, $displayName'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => context.read<AuthBloc>().add(SignOutRequested()),
+          ),
+        ],
+      ),
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text(
-              "Welcome User",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w400),
+            if (photoUrl != null) ...[
+              CircleAvatar(radius: 48, backgroundImage: NetworkImage(photoUrl)),
+              const SizedBox(height: 16),
+            ],
+            Text(
+              'Hello, $displayName!',
+              style: Theme.of(context).textTheme.titleLarge, // was headline6
             ),
-            const SizedBox(height: 20),
-            CustomButton(
-              label: "Sign Out",
-              onPressed: () async {
-                await auth.signout();
-                goToLogin(context);
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Navigate to journal-entry screen
               },
-            )
+              child: const Text('New Journal Entry'),
+            ),
           ],
         ),
       ),
     );
   }
-
-  goToLogin(BuildContext context) => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
 }
