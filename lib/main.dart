@@ -22,7 +22,6 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -37,24 +36,18 @@ class MyApp extends StatelessWidget {
           backgroundColor: Colors.transparent,
           iconTheme: IconThemeData(color: Colors.black),
         ),
-        textTheme: const TextTheme(
-          // old `headline5` → new `headlineLarge`
-          headlineLarge: TextStyle(fontWeight: FontWeight.bold),
-          // old `bodyText2` → new `bodyLarge`
-          bodyLarge: TextStyle(color: Colors.black87),
-        ),
       ),
       home: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           if (state is AuthAuthenticated) {
             return HomeScreen(user: state.user);
-          } else if (state is AuthLoading) {
+          }
+          if (state is AuthLoading) {
             return const Scaffold(
               body: Center(child: CircularProgressIndicator()),
             );
-          } else {
-            return const LoginScreen();
           }
+          return const LoginScreen();
         },
       ),
     );

@@ -11,9 +11,7 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final photoUrl = user.photoURL;
     final displayName = user.displayName ?? user.email ?? 'User';
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Welcome, $displayName'),
@@ -29,19 +27,18 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (photoUrl != null) ...[
-              CircleAvatar(radius: 48, backgroundImage: NetworkImage(photoUrl)),
+            if (user.photoURL != null) ...[
+              CircleAvatar(
+                  radius: 48, backgroundImage: NetworkImage(user.photoURL!)),
               const SizedBox(height: 16),
             ],
             Text(
               'Hello, $displayName!',
-              style: Theme.of(context).textTheme.titleLarge, // was headline6
+              style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () {
-                // TODO: Navigate to journal-entry screen
-              },
+              onPressed: () {}, // TODO: new journal entry
               child: const Text('New Journal Entry'),
             ),
           ],

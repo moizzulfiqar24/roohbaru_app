@@ -11,10 +11,7 @@ class AuthService {
   Future<UserCredential?> loginWithGoogle() async {
     try {
       final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        log('Google sign-in cancelled by user');
-        return null;
-      }
+      if (googleUser == null) return null;
       final googleAuth = await googleUser.authentication;
       final cred = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -31,9 +28,7 @@ class AuthService {
       String email, String password) async {
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+          email: email, password: password);
       return cred.user;
     } catch (e) {
       log('Email signup failed: $e');
@@ -45,9 +40,7 @@ class AuthService {
       String email, String password) async {
     try {
       final cred = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+          email: email, password: password);
       return cred.user;
     } catch (e) {
       log('Email login failed: $e');

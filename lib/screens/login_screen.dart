@@ -4,165 +4,181 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
 import '../blocs/auth_state.dart';
-import '../widgets/textfield.dart';
-import '../widgets/button.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+import '../widgets/social_button.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _emailValid = false;
+  bool _obscurePass = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl.addListener(_validateEmail);
+  }
 
   @override
   void dispose() {
+    _emailCtrl.removeListener(_validateEmail);
     _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _passCtrl.dispose();
     super.dispose();
+  }
+
+  void _validateEmail() {
+    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    setState(() => _emailValid = regex.hasMatch(_emailCtrl.text.trim()));
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       body: SafeArea(
         child: BlocListener<AuthBloc, AuthState>(
-          listener: (context, state) {
+          listener: (ctx, state) {
             if (state is AuthError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: theme.colorScheme.error,
-                ),
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(state.message)),
               );
             }
           },
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: BlocBuilder<AuthBloc, AuthState>(
-                builder: (context, state) {
-                  final isLoading = state is AuthLoading;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Welcome to Journal',
-                        style: theme.textTheme.headlineLarge
-                            ?.copyWith(fontSize: 28),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Please sign in to continue',
-                        style: theme.textTheme.bodyLarge
-                            ?.copyWith(color: Colors.grey[600]),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-
-                      // — Email & password —
-                      CustomTextField(
-                        label: 'Email',
-                        hint: 'Enter your email',
-                        controller: _emailCtrl,
-                      ),
-                      const SizedBox(height: 16),
-                      CustomTextField(
-                        label: 'Password',
-                        hint: 'Enter your password',
-                        isPassword: true,
-                        controller: _passwordCtrl,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // — Email sign-in button or loader —
-                      isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : CustomButton(
-                              label: 'Sign in with Email',
-                              onPressed: () {
-                                context.read<AuthBloc>().add(
-                                      EmailSignInRequested(
-                                        email: _emailCtrl.text,
-                                        password: _passwordCtrl.text,
-                                      ),
-                                    );
-                              },
-                            ),
-
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("Don't have an account? "),
-                          GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const SignupScreen()),
-                            ),
-                            child: Text(
-                              'Sign up',
-                              style: TextStyle(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // — Divider “OR” —
-                      Row(
-                        children: const [
-                          Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text('OR'),
-                          ),
-                          Expanded(child: Divider()),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // — Google sign-in —
-                      isLoading
-                          ? const SizedBox.shrink()
-                          : ElevatedButton.icon(
-                              onPressed: () {
-                                context
-                                    .read<AuthBloc>()
-                                    .add(GoogleSignInRequested());
-                              },
-                              icon: Image.asset(
-                                'assets/images/google.png',
-                                height: 24,
-                                width: 24,
-                              ),
-                              label: const Text('Sign in with Google'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black87,
-                                elevation: 2,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14, horizontal: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: const [
+                      Text('Log in',
+                          style: TextStyle(
+                              fontSize: 32, fontWeight: FontWeight.bold)),
+                      Spacer(),
+                      // Icon(Icons.star, size: 28),
                     ],
-                  );
-                },
+                  ),
+                  const SizedBox(height: 32),
+                  CustomTextField(
+                    label: 'Email address',
+                    hint: 'you@example.com',
+                    controller: _emailCtrl,
+                    suffixIcon: _emailValid
+                        ? Container(
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check,
+                                size: 16, color: Colors.white),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 24),
+                  CustomTextField(
+                    label: 'Password',
+                    hint: '••••••••',
+                    controller: _passCtrl,
+                    obscureText: _obscurePass,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePass
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePass = !_obscurePass),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {/* TODO: forgot password */},
+                      child: const Text('Forgot password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (ctx, state) {
+                      if (state is AuthLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      return PrimaryButton(
+                        label: 'Log in',
+                        onPressed: () {
+                          context.read<AuthBloc>().add(
+                                EmailSignInRequested(
+                                  email: _emailCtrl.text.trim(),
+                                  password: _passCtrl.text,
+                                ),
+                              );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(children: const [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Or Login with'),
+                    ),
+                    Expanded(child: Divider()),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // SocialButton(
+                      //   assetPath: 'assets/images/facebook.png',
+                      //   onTap: () {/* TODO: facebook */},
+                      // ),
+                      // const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/google.png',
+                        onTap: () => context
+                            .read<AuthBloc>()
+                            .add(GoogleSignInRequested()),
+                      ),
+                      const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/apple.png',
+                        onTap: () {/* TODO: apple */},
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don’t have an account? "),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SignupScreen()),
+                        ),
+                        child: Text(
+                          'Sign up',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),

@@ -4,12 +4,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
 import '../blocs/auth_state.dart';
-import '../widgets/textfield.dart';
-import '../widgets/button.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
-
   @override
   State<SignupScreen> createState() => _SignupScreenState();
 }
@@ -17,33 +16,28 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
-    _passwordCtrl.dispose();
+    _passCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Sign Up'), centerTitle: true),
       body: SafeArea(
         child: BlocListener<AuthBloc, AuthState>(
-          listener: (context, state) {
+          listener: (ctx, state) {
             if (state is AuthAuthenticated) {
-              // back to login (root) → wrapper will rebuild to HomeScreen
-              Navigator.of(context).pop();
+              Navigator.of(ctx).pop();
             } else if (state is AuthError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: theme.colorScheme.error,
-                ),
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(state.message)),
               );
             }
           },
@@ -59,31 +53,31 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
-                  label: 'Email',
-                  hint: 'Enter your email',
+                  label: 'Email address',
+                  hint: 'you@example.com',
                   controller: _emailCtrl,
                 ),
                 const SizedBox(height: 16),
                 CustomTextField(
                   label: 'Password',
-                  hint: 'Enter your password',
-                  isPassword: true,
-                  controller: _passwordCtrl,
+                  hint: '••••••••',
+                  controller: _passCtrl,
+                  obscureText: true,
                 ),
                 const SizedBox(height: 24),
                 BlocBuilder<AuthBloc, AuthState>(
-                  builder: (context, state) {
+                  builder: (ctx, state) {
                     if (state is AuthLoading) {
                       return const Center(child: CircularProgressIndicator());
                     }
-                    return CustomButton(
+                    return PrimaryButton(
                       label: 'Create account',
                       onPressed: () {
                         context.read<AuthBloc>().add(
                               EmailSignUpRequested(
-                                name: _nameCtrl.text,
-                                email: _emailCtrl.text,
-                                password: _passwordCtrl.text,
+                                name: _nameCtrl.text.trim(),
+                                email: _emailCtrl.text.trim(),
+                                password: _passCtrl.text,
                               ),
                             );
                       },

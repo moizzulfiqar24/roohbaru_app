@@ -8,7 +8,6 @@ import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthService _authService;
-
   AuthBloc(this._authService) : super(AuthInitial()) {
     on<AppStarted>(_onAppStarted);
     on<GoogleSignInRequested>(_onGoogleSignIn);
@@ -34,8 +33,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       log('Google sign-in initiated');
       final cred = await _authService.loginWithGoogle();
       if (cred?.user != null) {
-        log('User signed in: ${cred!.user!.uid}');
-        emit(AuthAuthenticated(cred.user!));
+        emit(AuthAuthenticated(cred!.user!));
       } else {
         emit(AuthError('Google sign-in cancelled'));
         emit(AuthUnauthenticated());
@@ -52,9 +50,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final user = await _authService.loginUserWithEmailAndPassword(
-        event.email.trim(),
-        event.password,
-      );
+          event.email.trim(), event.password);
       if (user != null) {
         emit(AuthAuthenticated(user));
       } else {
@@ -73,15 +69,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthLoading());
     try {
       final user = await _authService.createUserWithEmailAndPassword(
-        event.email.trim(),
-        event.password,
-      );
+          event.email.trim(), event.password);
       if (user != null) {
-        // optionally set display name
         await user.updateDisplayName(event.name.trim());
         await user.reload();
-        final updated = _authService.currentUser!;
-        emit(AuthAuthenticated(updated));
+        emit(AuthAuthenticated(_authService.currentUser!));
       } else {
         emit(AuthError('Sign-up failed'));
         emit(AuthUnauthenticated());
