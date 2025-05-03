@@ -12,7 +12,20 @@
           "package_name": "com.example.roohbaru_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "718658476081-9eltjruddb5th8fdqrnluni8cdq3c00b.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.roohbaru_app",
+            "certificate_hash": "6aa269683fcbe55d6a9b9d1f7a477443f009a125"
+          }
+        },
+        {
+          "client_id": "718658476081-2qd6loa459hthls9m81jrcppulto5gil.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDRIJA6-6Z6oBByvH5l6o0nuYT3JI2suec"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "718658476081-2qd6loa459hthls9m81jrcppulto5gil.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "718658476081-i3sqtfc1qjcaq9td5jbqj0u6142imq8e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.roohbaruApp"
+              }
+            }
+          ]
         }
       }
     }
