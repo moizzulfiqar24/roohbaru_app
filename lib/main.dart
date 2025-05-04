@@ -7,8 +7,8 @@ import 'blocs/auth_bloc.dart';
 import 'blocs/auth_event.dart';
 import 'blocs/auth_state.dart';
 import 'blocs/journal_bloc.dart';
-import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/intro_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,13 +48,9 @@ class MyApp extends StatelessWidget {
           builder: (context, state) {
             if (state is AuthAuthenticated) {
               return HomeScreen(user: state.user);
+            } else {
+              return const IntroScreen();
             }
-            if (state is AuthLoading) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-            return const LoginScreen();
           },
         ),
       ),

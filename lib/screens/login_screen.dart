@@ -11,6 +11,7 @@ import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -52,134 +53,137 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
           },
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: const [
-                      Text('Log in',
-                          style: TextStyle(
-                              fontSize: 32, fontWeight: FontWeight.bold)),
-                      Spacer(),
-                      // Icon(Icons.star, size: 28),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  CustomTextField(
-                    label: 'Email address',
-                    hint: 'you@example.com',
-                    controller: _emailCtrl,
-                    suffixIcon: _emailValid
-                        ? Container(
-                            margin: const EdgeInsets.only(right: 12),
-                            decoration: const BoxDecoration(
-                              color: Colors.black,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.check,
-                                size: 16, color: Colors.white),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 24),
-                  CustomTextField(
-                    label: 'Password',
-                    hint: '••••••••',
-                    controller: _passCtrl,
-                    obscureText: _obscurePass,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePass
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Log in',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
                       ),
-                      onPressed: () =>
-                          setState(() => _obscurePass = !_obscurePass),
                     ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {/* TODO: forgot password */},
-                      child: const Text('Forgot password?'),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                CustomTextField(
+                  label: 'Email address',
+                  hint: 'you@example.com',
+                  controller: _emailCtrl,
+                  suffixIcon: _emailValid
+                      ? Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.check,
+                              size: 16, color: Colors.white),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 24),
+                CustomTextField(
+                  label: 'Password',
+                  hint: '••••••••',
+                  controller: _passCtrl,
+                  obscureText: _obscurePass,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePass
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                     ),
+                    onPressed: () =>
+                        setState(() => _obscurePass = !_obscurePass),
                   ),
-                  const SizedBox(height: 16),
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (ctx, state) {
-                      if (state is AuthLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      return PrimaryButton(
-                        label: 'Log in',
-                        onPressed: () {
-                          context.read<AuthBloc>().add(
-                                EmailSignInRequested(
-                                  email: _emailCtrl.text.trim(),
-                                  password: _passCtrl.text,
-                                ),
-                              );
-                        },
-                      );
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // TODO: forgot password
                     },
+                    child: const Text('Forgot password?'),
                   ),
-                  const SizedBox(height: 24),
-                  Row(children: const [
+                ),
+                const SizedBox(height: 16),
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (ctx, state) {
+                    if (state is AuthLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return PrimaryButton(
+                      label: 'Log in',
+                      onPressed: () {
+                        context.read<AuthBloc>().add(
+                              EmailSignInRequested(
+                                email: _emailCtrl.text.trim(),
+                                password: _passCtrl.text,
+                              ),
+                            );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: const [
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Or Login with'),
+                      child: Text('Or login with'),
                     ),
                     Expanded(child: Divider()),
-                  ]),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      // SocialButton(
-                      //   assetPath: 'assets/images/facebook.png',
-                      //   onTap: () {/* TODO: facebook */},
-                      // ),
-                      // const SizedBox(width: 12),
-                      SocialButton(
-                        assetPath: 'assets/images/google.png',
-                        onTap: () => context
-                            .read<AuthBloc>()
-                            .add(GoogleSignInRequested()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    SocialButton(
+                      assetPath: 'assets/images/google.png',
+                      onTap: () =>
+                          context.read<AuthBloc>().add(GoogleSignInRequested()),
+                    ),
+                    const SizedBox(width: 12),
+                    SocialButton(
+                      assetPath: 'assets/images/apple.png',
+                      onTap: () {
+                        // TODO: implement Apple Sign In
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("Don't have an account? "),
+                    GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
                       ),
-                      const SizedBox(width: 12),
-                      SocialButton(
-                        assetPath: 'assets/images/apple.png',
-                        onTap: () {/* TODO: apple */},
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Don’t have an account? "),
-                      GestureDetector(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const SignupScreen()),
-                        ),
-                        child: Text(
-                          'Sign up',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      child: Text(
+                        'Sign up',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

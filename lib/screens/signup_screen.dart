@@ -6,6 +6,7 @@ import '../blocs/auth_event.dart';
 import '../blocs/auth_state.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
+import 'home_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -34,7 +35,10 @@ class _SignupScreenState extends State<SignupScreen> {
         child: BlocListener<AuthBloc, AuthState>(
           listener: (ctx, state) {
             if (state is AuthAuthenticated) {
-              Navigator.of(ctx).pop();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => HomeScreen(user: state.user)),
+                (_) => false,
+              );
             } else if (state is AuthError) {
               ScaffoldMessenger.of(ctx).showSnackBar(
                 SnackBar(content: Text(state.message)),
