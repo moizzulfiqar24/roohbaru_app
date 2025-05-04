@@ -9,6 +9,7 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import 'new_entry_screen.dart';
+import 'edit_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -23,6 +24,30 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<JournalBloc>().add(LoadEntries(widget.user.uid));
+  }
+
+  void _confirmDelete(BuildContext context, JournalEntry entry) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to delete this entry?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      context.read<JournalBloc>().add(DeleteEntry(entry.id));
+    }
   }
 
   @override
@@ -73,6 +98,47 @@ class _HomeScreenState extends State<HomeScreen> {
                     "${entry.timestamp.month}/${entry.timestamp.day}/${entry.timestamp.year}",
                     style: const TextStyle(fontSize: 12),
                   ),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (_) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              title: Text(entry.title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text(entry.content),
+                            ),
+                            const Divider(),
+                            ListTile(
+                              leading: const Icon(Icons.edit),
+                              title: const Text('Edit'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        EditEntryScreen(entry: entry),
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.delete),
+                              title: const Text('Delete'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _confirmDelete(context, entry);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             );

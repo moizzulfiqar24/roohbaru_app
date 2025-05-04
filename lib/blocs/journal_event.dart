@@ -19,3 +19,17 @@ class AddEntry extends JournalEvent {
   @override
   List<Object?> get props => [entry];
 }
+
+class UpdateEntry extends JournalEvent {
+  final JournalEntry entry;
+  UpdateEntry(this.entry);
+  @override
+  List<Object?> get props => [entry];
+}
+
+class DeleteEntry extends JournalEvent {
+  final String entryId;
+  DeleteEntry(this.entryId);
+  @override
+  List<Object?> get props => [entryId];
+}

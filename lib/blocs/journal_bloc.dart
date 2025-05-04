@@ -11,12 +11,13 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
   JournalBloc() : super(JournalInitial()) {
     on<LoadEntries>(_onLoadEntries);
     on<AddEntry>(_onAddEntry);
+    on<UpdateEntry>(_onUpdateEntry);
+    on<DeleteEntry>(_onDeleteEntry);
   }
 
   Future<void> _onLoadEntries(
       LoadEntries event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
-
     try {
       final stream = _firestore
           .collection('entries')
@@ -29,13 +30,11 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
 
       await emit.forEach<List<JournalEntry>>(
         stream,
-        onData: (entries) {
-          return JournalLoaded(entries);
-        },
+        onData: (entries) => JournalLoaded(entries),
         onError: (_, __) => JournalError('Failed to load journal entries.'),
       );
     } catch (e, st) {
-      log('Error setting up stream: $e\n$st');
+      log('Stream error: $e\n$st');
       emit(JournalError('Something went wrong while loading entries.'));
     }
   }
@@ -43,10 +42,32 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
     try {
       await _firestore.collection('entries').add(event.entry.toMap());
-      log('Entry added: ${event.entry.title}');
     } catch (e, st) {
-      log('Failed to add entry: $e\n$st');
+      log('Add error: $e\n$st');
       emit(JournalError('Failed to add entry.'));
+    }
+  }
+
+  Future<void> _onUpdateEntry(
+      UpdateEntry event, Emitter<JournalState> emit) async {
+    try {
+      await _firestore
+          .collection('entries')
+          .doc(event.entry.id)
+          .update(event.entry.toMap());
+    } catch (e, st) {
+      log('Update error: $e\n$st');
+      emit(JournalError('Failed to update entry.'));
+    }
+  }
+
+  Future<void> _onDeleteEntry(
+      DeleteEntry event, Emitter<JournalState> emit) async {
+    try {
+      await _firestore.collection('entries').doc(event.entryId).delete();
+    } catch (e, st) {
+      log('Delete error: $e\n$st');
+      emit(JournalError('Failed to delete entry.'));
     }
   }
 }

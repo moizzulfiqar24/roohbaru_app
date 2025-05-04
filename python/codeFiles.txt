@@ -15,8 +15,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  runApp(
-    MultiBlocProvider(
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>(
           create: (_) => AuthBloc(AuthService())..add(AppStarted()),
@@ -25,41 +32,32 @@ Future<void> main() async {
           create: (_) => JournalBloc(),
         ),
       ],
-      child: const MyApp(),
-    ),
-  );
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Journal App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.indigo,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          iconTheme: IconThemeData(color: Colors.black),
+      child: MaterialApp(
+        title: 'Journal App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: Colors.indigo,
+          scaffoldBackgroundColor: Colors.white,
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            iconTheme: IconThemeData(color: Colors.black),
+          ),
         ),
-      ),
-      home: BlocBuilder<AuthBloc, AuthState>(
-        builder: (context, state) {
-          if (state is AuthAuthenticated) {
-            return HomeScreen(user: state.user); // <-- now safe
-          }
-          if (state is AuthLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return const LoginScreen();
-        },
+        home: BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, state) {
+            if (state is AuthAuthenticated) {
+              return HomeScreen(user: state.user);
+            }
+            if (state is AuthLoading) {
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return const LoginScreen();
+          },
+        ),
       ),
     );
   }
@@ -106,6 +104,16 @@ class JournalEntry {
       'timestamp': Timestamp.fromDate(timestamp),
     };
   }
+
+  JournalEntry copyWith({String? title, String? content}) {
+    return JournalEntry(
+      id: id,
+      userId: userId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      timestamp: timestamp,
+    );
+  }
 }
 
 ]
@@ -133,77 +141,94 @@ class AddEntry extends JournalEvent {
   List<Object?> get props => [entry];
 }
 
-class UpdateEntries extends JournalEvent {
-  final List<JournalEntry> entries;
-  UpdateEntries(this.entries);
+class UpdateEntry extends JournalEvent {
+  final JournalEntry entry;
+  UpdateEntry(this.entry);
   @override
-  List<Object?> get props => [entries];
+  List<Object?> get props => [entry];
 }
 
-class StreamErrorOccurred extends JournalEvent {
-  final String message;
-  StreamErrorOccurred(this.message);
+class DeleteEntry extends JournalEvent {
+  final String entryId;
+  DeleteEntry(this.entryId);
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [entryId];
 }
 
 ]
 
 roohbaru_app/lib/blocs/journal_bloc.dart: [
-// journal_bloc.dart
-import 'dart:async';
 import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../models/journal_entry.dart';
 import 'journal_event.dart';
 import 'journal_state.dart';
 
 class JournalBloc extends Bloc<JournalEvent, JournalState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  StreamSubscription? _subscription;
 
   JournalBloc() : super(JournalInitial()) {
     on<LoadEntries>(_onLoadEntries);
     on<AddEntry>(_onAddEntry);
+    on<UpdateEntry>(_onUpdateEntry);
+    on<DeleteEntry>(_onDeleteEntry);
   }
 
   Future<void> _onLoadEntries(
       LoadEntries event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
+    try {
+      final stream = _firestore
+          .collection('entries')
+          .where('userId', isEqualTo: event.userId)
+          .orderBy('timestamp', descending: true)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => JournalEntry.fromFirestore(doc))
+              .toList());
 
-    await _subscription?.cancel(); // cancel previous stream if any
-
-    _subscription = _firestore
-        .collection('entries')
-        .where('userId', isEqualTo: event.userId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .listen((snapshot) {
-      final entries =
-          snapshot.docs.map((doc) => JournalEntry.fromFirestore(doc)).toList();
-      emit(JournalLoaded(entries));
-    }, onError: (error) {
-      log('Stream error: $error');
+      await emit.forEach<List<JournalEntry>>(
+        stream,
+        onData: (entries) => JournalLoaded(entries),
+        onError: (_, __) => JournalError('Failed to load journal entries.'),
+      );
+    } catch (e, st) {
+      log('Stream error: $e\n$st');
       emit(JournalError('Something went wrong while loading entries.'));
-    });
+    }
   }
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
     try {
       await _firestore.collection('entries').add(event.entry.toMap());
-      log('Entry added: ${event.entry.title}');
     } catch (e, st) {
-      log('Failed to add entry: $e\n$st');
+      log('Add error: $e\n$st');
       emit(JournalError('Failed to add entry.'));
     }
   }
 
-  @override
-  Future<void> close() async {
-    await _subscription?.cancel();
-    return super.close();
+  Future<void> _onUpdateEntry(
+      UpdateEntry event, Emitter<JournalState> emit) async {
+    try {
+      await _firestore
+          .collection('entries')
+          .doc(event.entry.id)
+          .update(event.entry.toMap());
+    } catch (e, st) {
+      log('Update error: $e\n$st');
+      emit(JournalError('Failed to update entry.'));
+    }
+  }
+
+  Future<void> _onDeleteEntry(
+      DeleteEntry event, Emitter<JournalState> emit) async {
+    try {
+      await _firestore.collection('entries').doc(event.entryId).delete();
+    } catch (e, st) {
+      log('Delete error: $e\n$st');
+      emit(JournalError('Failed to delete entry.'));
+    }
   }
 }
 
@@ -443,8 +468,9 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
   }
 
   void _submit() {
-    if (_titleCtrl.text.trim().isEmpty || _contentCtrl.text.trim().isEmpty)
+    if (_titleCtrl.text.trim().isEmpty || _contentCtrl.text.trim().isEmpty) {
       return;
+    }
 
     final entry = JournalEntry(
       id: const Uuid().v4(),
@@ -455,7 +481,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     );
 
     context.read<JournalBloc>().add(AddEntry(entry));
-    Navigator.of(context).pop(); // Go back to home screen
+    Navigator.of(context).pop();
   }
 
   @override
@@ -784,6 +810,85 @@ class _LoginScreenState extends State<LoginScreen> {
 
 ]
 
+roohbaru_app/lib/screens/edit_entry_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../blocs/journal_bloc.dart';
+import '../blocs/journal_event.dart';
+import '../models/journal_entry.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+
+class EditEntryScreen extends StatefulWidget {
+  final JournalEntry entry;
+  const EditEntryScreen({super.key, required this.entry});
+
+  @override
+  State<EditEntryScreen> createState() => _EditEntryScreenState();
+}
+
+class _EditEntryScreenState extends State<EditEntryScreen> {
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _contentCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleCtrl = TextEditingController(text: widget.entry.title);
+    _contentCtrl = TextEditingController(text: widget.entry.content);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _contentCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final updatedEntry = JournalEntry(
+      id: widget.entry.id,
+      userId: widget.entry.userId,
+      title: _titleCtrl.text.trim(),
+      content: _contentCtrl.text.trim(),
+      timestamp: DateTime.now(),
+    );
+
+    context.read<JournalBloc>().add(UpdateEntry(updatedEntry));
+    Navigator.of(context).pop(); // Go back after saving
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Edit Entry')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            CustomTextField(
+              label: 'Title',
+              hint: 'Update title...',
+              controller: _titleCtrl,
+            ),
+            const SizedBox(height: 16),
+            CustomTextField(
+              label: 'Content',
+              hint: 'Update your thoughts...',
+              controller: _contentCtrl,
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(label: 'Save Changes', onPressed: _submit),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+]
+
 roohbaru_app/lib/screens/home_screen.dart: [
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -796,6 +901,7 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import 'new_entry_screen.dart';
+import 'edit_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -812,26 +918,55 @@ class _HomeScreenState extends State<HomeScreen> {
     context.read<JournalBloc>().add(LoadEntries(widget.user.uid));
   }
 
+  void _confirmDelete(BuildContext context, JournalEntry entry) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to delete this entry?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      context.read<JournalBloc>().add(DeleteEntry(entry.id));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final displayName = widget.user.displayName ?? widget.user.email ?? 'User';
+    final name = widget.user.displayName ?? widget.user.email ?? "User";
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Welcome, $displayName'),
+        title: Text("Welcome, $name"),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => context.read<AuthBloc>().add(SignOutRequested()),
-          ),
+            onPressed: () {
+              context.read<AuthBloc>().add(SignOutRequested());
+            },
+          )
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => NewEntryScreen(userId: widget.user.uid),
-          ));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => NewEntryScreen(userId: widget.user.uid),
+            ),
+          );
         },
         child: const Icon(Icons.add),
       ),
@@ -840,32 +975,69 @@ class _HomeScreenState extends State<HomeScreen> {
           if (state is JournalLoading || state is JournalInitial) {
             return const Center(child: CircularProgressIndicator());
           } else if (state is JournalLoaded) {
-            final entries = state.entries;
-            if (entries.isEmpty) {
-              return const Center(child: Text('No journal entries yet.'));
+            if (state.entries.isEmpty) {
+              return const Center(child: Text("No journal entries yet."));
             }
             return ListView.builder(
-              itemCount: entries.length,
+              itemCount: state.entries.length,
               itemBuilder: (context, index) {
-                final entry = entries[index];
+                final entry = state.entries[index];
                 return ListTile(
                   title: Text(entry.title),
-                  subtitle: Text(
-                    entry.content,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  subtitle: Text(entry.content,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
                   trailing: Text(
-                    '${entry.timestamp.month}/${entry.timestamp.day}/${entry.timestamp.year}',
+                    "${entry.timestamp.month}/${entry.timestamp.day}/${entry.timestamp.year}",
                     style: const TextStyle(fontSize: 12),
                   ),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (_) => SafeArea(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ListTile(
+                              title: Text(entry.title,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              subtitle: Text(entry.content),
+                            ),
+                            const Divider(),
+                            ListTile(
+                              leading: const Icon(Icons.edit),
+                              title: const Text('Edit'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        EditEntryScreen(entry: entry),
+                                  ),
+                                );
+                              },
+                            ),
+                            ListTile(
+                              leading: const Icon(Icons.delete),
+                              title: const Text('Delete'),
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                _confirmDelete(context, entry);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             );
           } else if (state is JournalError) {
             return Center(child: Text(state.message));
           }
-          return const SizedBox();
+          return const SizedBox.shrink();
         },
       ),
     );

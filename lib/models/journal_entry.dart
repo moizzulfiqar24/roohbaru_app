@@ -34,4 +34,14 @@ class JournalEntry {
       'timestamp': Timestamp.fromDate(timestamp),
     };
   }
+
+  JournalEntry copyWith({String? title, String? content}) {
+    return JournalEntry(
+      id: id,
+      userId: userId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      timestamp: timestamp,
+    );
+  }
 }
