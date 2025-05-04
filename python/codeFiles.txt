@@ -1,0 +1,1061 @@
+roohbaru_app/lib/main.dart: [
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'services/auth_service.dart';
+import 'blocs/auth_bloc.dart';
+import 'blocs/auth_event.dart';
+import 'blocs/auth_state.dart';
+import 'blocs/journal_bloc.dart';
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => AuthBloc(AuthService())..add(AppStarted()),
+        ),
+        BlocProvider<JournalBloc>(
+          create: (_) => JournalBloc(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Journal App',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.indigo,
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: IconThemeData(color: Colors.black),
+        ),
+      ),
+      home: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          if (state is AuthAuthenticated) {
+            return HomeScreen(user: state.user); // <-- now safe
+          }
+          if (state is AuthLoading) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return const LoginScreen();
+        },
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/utils: no code files are added in this folder yet
+
+roohbaru_app/lib/models/journal_entry.dart: [
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class JournalEntry {
+  final String id;
+  final String userId;
+  final String title;
+  final String content;
+  final DateTime timestamp;
+
+  JournalEntry({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.content,
+    required this.timestamp,
+  });
+
+  factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return JournalEntry(
+      id: doc.id,
+      userId: data['userId'],
+      title: data['title'],
+      content: data['content'],
+      timestamp: (data['timestamp'] as Timestamp).toDate(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'title': title,
+      'content': content,
+      'timestamp': Timestamp.fromDate(timestamp),
+    };
+  }
+}
+
+]
+
+roohbaru_app/lib/blocs/journal_event.dart: [
+import 'package:equatable/equatable.dart';
+import '../models/journal_entry.dart';
+
+abstract class JournalEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class LoadEntries extends JournalEvent {
+  final String userId;
+  LoadEntries(this.userId);
+  @override
+  List<Object?> get props => [userId];
+}
+
+class AddEntry extends JournalEvent {
+  final JournalEntry entry;
+  AddEntry(this.entry);
+  @override
+  List<Object?> get props => [entry];
+}
+
+class UpdateEntries extends JournalEvent {
+  final List<JournalEntry> entries;
+  UpdateEntries(this.entries);
+  @override
+  List<Object?> get props => [entries];
+}
+
+class StreamErrorOccurred extends JournalEvent {
+  final String message;
+  StreamErrorOccurred(this.message);
+  @override
+  List<Object?> get props => [message];
+}
+
+]
+
+roohbaru_app/lib/blocs/journal_bloc.dart: [
+// journal_bloc.dart
+import 'dart:async';
+import 'dart:developer';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../models/journal_entry.dart';
+import 'journal_event.dart';
+import 'journal_state.dart';
+
+class JournalBloc extends Bloc<JournalEvent, JournalState> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription? _subscription;
+
+  JournalBloc() : super(JournalInitial()) {
+    on<LoadEntries>(_onLoadEntries);
+    on<AddEntry>(_onAddEntry);
+  }
+
+  Future<void> _onLoadEntries(
+      LoadEntries event, Emitter<JournalState> emit) async {
+    emit(JournalLoading());
+
+    await _subscription?.cancel(); // cancel previous stream if any
+
+    _subscription = _firestore
+        .collection('entries')
+        .where('userId', isEqualTo: event.userId)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .listen((snapshot) {
+      final entries =
+          snapshot.docs.map((doc) => JournalEntry.fromFirestore(doc)).toList();
+      emit(JournalLoaded(entries));
+    }, onError: (error) {
+      log('Stream error: $error');
+      emit(JournalError('Something went wrong while loading entries.'));
+    });
+  }
+
+  Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
+    try {
+      await _firestore.collection('entries').add(event.entry.toMap());
+      log('Entry added: ${event.entry.title}');
+    } catch (e, st) {
+      log('Failed to add entry: $e\n$st');
+      emit(JournalError('Failed to add entry.'));
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _subscription?.cancel();
+    return super.close();
+  }
+}
+
+]
+
+roohbaru_app/lib/blocs/journal_state.dart: [
+import 'package:equatable/equatable.dart';
+import '../models/journal_entry.dart';
+
+abstract class JournalState extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class JournalInitial extends JournalState {}
+
+class JournalLoading extends JournalState {}
+
+class JournalLoaded extends JournalState {
+  final List<JournalEntry> entries;
+  JournalLoaded(this.entries);
+
+  @override
+  List<Object?> get props => [entries];
+}
+
+class JournalError extends JournalState {
+  final String message;
+  JournalError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+]
+
+roohbaru_app/lib/blocs/auth_event.dart: [
+import 'package:equatable/equatable.dart';
+
+abstract class AuthEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class AppStarted extends AuthEvent {}
+
+class GoogleSignInRequested extends AuthEvent {}
+
+class EmailSignInRequested extends AuthEvent {
+  final String email;
+  final String password;
+  EmailSignInRequested({required this.email, required this.password});
+  @override
+  List<Object?> get props => [email, password];
+}
+
+class EmailSignUpRequested extends AuthEvent {
+  final String name;
+  final String email;
+  final String password;
+  EmailSignUpRequested({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+  @override
+  List<Object?> get props => [name, email, password];
+}
+
+class SignOutRequested extends AuthEvent {}
+
+]
+
+roohbaru_app/lib/blocs/auth_bloc.dart: [
+import 'dart:developer';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../services/auth_service.dart';
+import 'auth_event.dart';
+import 'auth_state.dart';
+
+class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  final AuthService _authService;
+  AuthBloc(this._authService) : super(AuthInitial()) {
+    on<AppStarted>(_onAppStarted);
+    on<GoogleSignInRequested>(_onGoogleSignIn);
+    on<EmailSignInRequested>(_onEmailSignIn);
+    on<EmailSignUpRequested>(_onEmailSignUp);
+    on<SignOutRequested>(_onSignOut);
+  }
+
+  Future<void> _onAppStarted(AppStarted event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    final user = _authService.currentUser;
+    if (user != null) {
+      emit(AuthAuthenticated(user));
+    } else {
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onGoogleSignIn(
+      GoogleSignInRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      log('Google sign-in initiated');
+      final cred = await _authService.loginWithGoogle();
+      if (cred?.user != null) {
+        emit(AuthAuthenticated(cred!.user!));
+      } else {
+        emit(AuthError('Google sign-in cancelled'));
+        emit(AuthUnauthenticated());
+      }
+    } catch (e, st) {
+      log('Google sign-in error: $e\n$st');
+      emit(AuthError('Google sign-in failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onEmailSignIn(
+      EmailSignInRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      final user = await _authService.loginUserWithEmailAndPassword(
+          event.email.trim(), event.password);
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(AuthError('Invalid email or password'));
+        emit(AuthUnauthenticated());
+      }
+    } catch (e, st) {
+      log('Email sign-in error: $e\n$st');
+      emit(AuthError('Email sign-in failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onEmailSignUp(
+      EmailSignUpRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      final user = await _authService.createUserWithEmailAndPassword(
+          event.email.trim(), event.password);
+      if (user != null) {
+        await user.updateDisplayName(event.name.trim());
+        await user.reload();
+        emit(AuthAuthenticated(_authService.currentUser!));
+      } else {
+        emit(AuthError('Sign-up failed'));
+        emit(AuthUnauthenticated());
+      }
+    } catch (e, st) {
+      log('Email sign-up error: $e\n$st');
+      emit(AuthError('Sign-up failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+
+  Future<void> _onSignOut(
+      SignOutRequested event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+    try {
+      await _authService.signOut();
+      emit(AuthUnauthenticated());
+    } catch (e, st) {
+      log('Sign-out error: $e\n$st');
+      emit(AuthError('Sign-out failed'));
+      emit(AuthUnauthenticated());
+    }
+  }
+}
+
+]
+
+roohbaru_app/lib/blocs/auth_state.dart: [
+import 'package:equatable/equatable.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+abstract class AuthState extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+class AuthInitial extends AuthState {}
+
+class AuthLoading extends AuthState {}
+
+class AuthAuthenticated extends AuthState {
+  final User user;
+  AuthAuthenticated(this.user);
+  @override
+  List<Object?> get props => [user];
+}
+
+class AuthUnauthenticated extends AuthState {}
+
+class AuthError extends AuthState {
+  final String message;
+  AuthError(this.message);
+  @override
+  List<Object?> get props => [message];
+}
+
+]
+
+roohbaru_app/lib/screens/new_entry_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
+
+import '../blocs/journal_bloc.dart';
+import '../blocs/journal_event.dart';
+import '../models/journal_entry.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+
+class NewEntryScreen extends StatefulWidget {
+  final String userId;
+  const NewEntryScreen({super.key, required this.userId});
+
+  @override
+  State<NewEntryScreen> createState() => _NewEntryScreenState();
+}
+
+class _NewEntryScreenState extends State<NewEntryScreen> {
+  final _titleCtrl = TextEditingController();
+  final _contentCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _contentCtrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_titleCtrl.text.trim().isEmpty || _contentCtrl.text.trim().isEmpty)
+      return;
+
+    final entry = JournalEntry(
+      id: const Uuid().v4(),
+      userId: widget.userId,
+      title: _titleCtrl.text.trim(),
+      content: _contentCtrl.text.trim(),
+      timestamp: DateTime.now(),
+    );
+
+    context.read<JournalBloc>().add(AddEntry(entry));
+    Navigator.of(context).pop(); // Go back to home screen
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('New Entry')),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            CustomTextField(
+              label: 'Title',
+              hint: 'Give it a title...',
+              controller: _titleCtrl,
+            ),
+            const SizedBox(height: 16),
+            CustomTextField(
+              label: 'Content',
+              hint: 'Write your thoughts...',
+              controller: _contentCtrl,
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(label: 'Save Entry', onPressed: _submit),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/screens/signup_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
+import '../blocs/auth_state.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+
+class SignupScreen extends StatefulWidget {
+  const SignupScreen({super.key});
+  @override
+  State<SignupScreen> createState() => _SignupScreenState();
+}
+
+class _SignupScreenState extends State<SignupScreen> {
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sign Up'), centerTitle: true),
+      body: SafeArea(
+        child: BlocListener<AuthBloc, AuthState>(
+          listener: (ctx, state) {
+            if (state is AuthAuthenticated) {
+              Navigator.of(ctx).pop();
+            } else if (state is AuthError) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(state.message)),
+              );
+            }
+          },
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CustomTextField(
+                  label: 'Name',
+                  hint: 'Enter your name',
+                  controller: _nameCtrl,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Email address',
+                  hint: 'you@example.com',
+                  controller: _emailCtrl,
+                ),
+                const SizedBox(height: 16),
+                CustomTextField(
+                  label: 'Password',
+                  hint: '••••••••',
+                  controller: _passCtrl,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 24),
+                BlocBuilder<AuthBloc, AuthState>(
+                  builder: (ctx, state) {
+                    if (state is AuthLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return PrimaryButton(
+                      label: 'Create account',
+                      onPressed: () {
+                        context.read<AuthBloc>().add(
+                              EmailSignUpRequested(
+                                name: _nameCtrl.text.trim(),
+                                email: _emailCtrl.text.trim(),
+                                password: _passCtrl.text,
+                              ),
+                            );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Already have an account? Log in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/screens/login_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
+import '../blocs/auth_state.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/primary_button.dart';
+import '../widgets/social_button.dart';
+import 'signup_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _emailValid = false;
+  bool _obscurePass = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl.addListener(_validateEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.removeListener(_validateEmail);
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  void _validateEmail() {
+    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    setState(() => _emailValid = regex.hasMatch(_emailCtrl.text.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: BlocListener<AuthBloc, AuthState>(
+          listener: (ctx, state) {
+            if (state is AuthError) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                SnackBar(content: Text(state.message)),
+              );
+            }
+          },
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: const [
+                      Text('Log in',
+                          style: TextStyle(
+                              fontSize: 32, fontWeight: FontWeight.bold)),
+                      Spacer(),
+                      // Icon(Icons.star, size: 28),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  CustomTextField(
+                    label: 'Email address',
+                    hint: 'you@example.com',
+                    controller: _emailCtrl,
+                    suffixIcon: _emailValid
+                        ? Container(
+                            margin: const EdgeInsets.only(right: 12),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check,
+                                size: 16, color: Colors.white),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 24),
+                  CustomTextField(
+                    label: 'Password',
+                    hint: '••••••••',
+                    controller: _passCtrl,
+                    obscureText: _obscurePass,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePass
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePass = !_obscurePass),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {/* TODO: forgot password */},
+                      child: const Text('Forgot password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (ctx, state) {
+                      if (state is AuthLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      return PrimaryButton(
+                        label: 'Log in',
+                        onPressed: () {
+                          context.read<AuthBloc>().add(
+                                EmailSignInRequested(
+                                  email: _emailCtrl.text.trim(),
+                                  password: _passCtrl.text,
+                                ),
+                              );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(children: const [
+                    Expanded(child: Divider()),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Or Login with'),
+                    ),
+                    Expanded(child: Divider()),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // SocialButton(
+                      //   assetPath: 'assets/images/facebook.png',
+                      //   onTap: () {/* TODO: facebook */},
+                      // ),
+                      // const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/google.png',
+                        onTap: () => context
+                            .read<AuthBloc>()
+                            .add(GoogleSignInRequested()),
+                      ),
+                      const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/apple.png',
+                        onTap: () {/* TODO: apple */},
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don’t have an account? "),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SignupScreen()),
+                        ),
+                        child: Text(
+                          'Sign up',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/screens/home_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_event.dart';
+import '../blocs/journal_bloc.dart';
+import '../blocs/journal_event.dart';
+import '../blocs/journal_state.dart';
+import '../models/journal_entry.dart';
+import 'new_entry_screen.dart';
+
+class HomeScreen extends StatefulWidget {
+  final User user;
+  const HomeScreen({super.key, required this.user});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<JournalBloc>().add(LoadEntries(widget.user.uid));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = widget.user.displayName ?? widget.user.email ?? 'User';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Welcome, $displayName'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => context.read<AuthBloc>().add(SignOutRequested()),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => NewEntryScreen(userId: widget.user.uid),
+          ));
+        },
+        child: const Icon(Icons.add),
+      ),
+      body: BlocBuilder<JournalBloc, JournalState>(
+        builder: (context, state) {
+          if (state is JournalLoading || state is JournalInitial) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (state is JournalLoaded) {
+            final entries = state.entries;
+            if (entries.isEmpty) {
+              return const Center(child: Text('No journal entries yet.'));
+            }
+            return ListView.builder(
+              itemCount: entries.length,
+              itemBuilder: (context, index) {
+                final entry = entries[index];
+                return ListTile(
+                  title: Text(entry.title),
+                  subtitle: Text(
+                    entry.content,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(
+                    '${entry.timestamp.month}/${entry.timestamp.day}/${entry.timestamp.year}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                );
+              },
+            );
+          } else if (state is JournalError) {
+            return Center(child: Text(state.message));
+          }
+          return const SizedBox();
+        },
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/services/auth_service.dart: [
+import 'dart:developer';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+class AuthService {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
+
+  User? get currentUser => _auth.currentUser;
+
+  Future<UserCredential?> loginWithGoogle() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+      final googleAuth = await googleUser.authentication;
+      final cred = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      return _auth.signInWithCredential(cred);
+    } catch (e, st) {
+      log('loginWithGoogle error: $e\n$st');
+      rethrow;
+    }
+  }
+
+  Future<User?> createUserWithEmailAndPassword(
+      String email, String password) async {
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+          email: email, password: password);
+      return cred.user;
+    } catch (e) {
+      log('Email signup failed: $e');
+      return null;
+    }
+  }
+
+  Future<User?> loginUserWithEmailAndPassword(
+      String email, String password) async {
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
+      return cred.user;
+    } catch (e) {
+      log('Email login failed: $e');
+      return null;
+    }
+  }
+
+  Future<void> signOut() async {
+    try {
+      await _googleSignIn.signOut();
+      await _auth.signOut();
+    } catch (e) {
+      log('Sign-out error: $e');
+    }
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/primary_button.dart: [
+import 'package:flutter/material.dart';
+
+class PrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const PrimaryButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/custom_text_field.dart: [
+import 'package:flutter/material.dart';
+
+class CustomTextField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool obscureText;
+  final Widget? suffixIcon;
+
+  const CustomTextField({
+    super.key,
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.obscureText = false,
+    this.suffixIcon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: obscureText,
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixIcon: suffixIcon,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.grey),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/social_button.dart: [
+import 'package:flutter/material.dart';
+
+class SocialButton extends StatelessWidget {
+  final String assetPath;
+  final VoidCallback? onTap;
+
+  const SocialButton({
+    super.key,
+    required this.assetPath,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          height: 48,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300, width: 1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Image.asset(assetPath, height: 24, width: 24),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+]
+
