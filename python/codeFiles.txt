@@ -66,12 +66,37 @@ roohbaru_app/lib/utils: no code files are added in this folder yet
 roohbaru_app/lib/models/journal_entry.dart: [
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+class Attachment {
+  final String url;
+  final String name;
+  final String type; // e.g., 'image', 'pdf', 'doc'
+
+  Attachment({required this.url, required this.name, required this.type});
+
+  factory Attachment.fromMap(Map<String, dynamic> map) {
+    return Attachment(
+      url: map['url'],
+      name: map['name'],
+      type: map['type'],
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'url': url,
+      'name': name,
+      'type': type,
+    };
+  }
+}
+
 class JournalEntry {
   final String id;
   final String userId;
   final String title;
   final String content;
   final DateTime timestamp;
+  final List<Attachment> attachments;
 
   JournalEntry({
     required this.id,
@@ -79,6 +104,7 @@ class JournalEntry {
     required this.title,
     required this.content,
     required this.timestamp,
+    this.attachments = const [],
   });
 
   factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
@@ -89,6 +115,9 @@ class JournalEntry {
       title: data['title'],
       content: data['content'],
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+      attachments: (data['attachments'] as List<dynamic>? ?? [])
+          .map((a) => Attachment.fromMap(a))
+          .toList(),
     );
   }
 
@@ -98,16 +127,22 @@ class JournalEntry {
       'title': title,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
+      'attachments': attachments.map((a) => a.toMap()).toList(),
     };
   }
 
-  JournalEntry copyWith({String? title, String? content}) {
+  JournalEntry copyWith({
+    String? title,
+    String? content,
+    List<Attachment>? attachments,
+  }) {
     return JournalEntry(
       id: id,
       userId: userId,
       title: title ?? this.title,
       content: content ?? this.content,
       timestamp: timestamp,
+      attachments: attachments ?? this.attachments,
     );
   }
 }
@@ -434,13 +469,18 @@ class AuthError extends AuthState {
 ]
 
 roohbaru_app/lib/screens/new_entry_screen.dart: [
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 
 import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
 import '../models/journal_entry.dart';
+import '../services/file_storage_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -453,8 +493,13 @@ class NewEntryScreen extends StatefulWidget {
 }
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
-  final _titleCtrl = TextEditingController();
-  final _contentCtrl = TextEditingController();
+  final TextEditingController _titleCtrl = TextEditingController();
+  final TextEditingController _contentCtrl = TextEditingController();
+
+  final List<Attachment> _attachments = [];
+  final FileStorageService _fileService = FileStorageService();
+
+  bool _showTitleError = false;
 
   @override
   void dispose() {
@@ -463,21 +508,76 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_titleCtrl.text.trim().isEmpty || _contentCtrl.text.trim().isEmpty) {
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      withReadStream: false,
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      for (final file in result.files) {
+        if (file.path == null) continue;
+
+        final sourceFile = File(file.path!);
+        final savedFile =
+            await _fileService.saveFileLocally(sourceFile, file.name);
+
+        final ext = file.extension?.toLowerCase() ?? '';
+        String type = 'file';
+
+        if (['jpg', 'jpeg', 'png', 'gif'].contains(ext)) {
+          type = 'image';
+        } else if (ext == 'pdf') {
+          type = 'pdf';
+        }
+
+        _attachments.add(Attachment(
+          url: savedFile.path,
+          name: file.name,
+          type: type,
+        ));
+      }
+
+      setState(() {});
+    }
+  }
+
+  void _submitEntry(BuildContext context) {
+    final title = _titleCtrl.text.trim();
+    final content = _contentCtrl.text.trim();
+
+    if (title.isEmpty) {
+      setState(() => _showTitleError = true);
       return;
     }
 
     final entry = JournalEntry(
       id: const Uuid().v4(),
       userId: widget.userId,
-      title: _titleCtrl.text.trim(),
-      content: _contentCtrl.text.trim(),
+      title: title,
+      content: content,
       timestamp: DateTime.now(),
+      attachments: _attachments,
     );
 
     context.read<JournalBloc>().add(AddEntry(entry));
     Navigator.of(context).pop();
+  }
+
+  Widget _buildAttachmentPreview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _attachments.map((a) {
+        final isImage = a.type == 'image';
+        return ListTile(
+          leading: isImage
+              ? Image.file(File(a.url),
+                  width: 40, height: 40, fit: BoxFit.cover)
+              : const Icon(Icons.insert_drive_file, size: 32),
+          title: Text(a.name),
+        );
+      }).toList(),
+    );
   }
 
   @override
@@ -486,21 +586,99 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       appBar: AppBar(title: const Text('New Entry')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              CustomTextField(
+                label: 'Title',
+                hint: 'Give it a title...',
+                controller: _titleCtrl,
+                errorText: _showTitleError ? 'Title is required' : null,
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                label: 'Content',
+                hint: 'Write your thoughts...',
+                controller: _contentCtrl,
+              ),
+              const SizedBox(height: 24),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _pickFiles,
+                  icon: const Icon(Icons.attach_file),
+                  label: const Text('Add Attachment'),
+                ),
+              ),
+              if (_attachments.isNotEmpty) _buildAttachmentPreview(),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: 'Save Entry',
+                onPressed: () => _submitEntry(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/screens/entry_detail_screen.dart: [
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:open_file/open_file.dart';
+
+import '../models/journal_entry.dart';
+
+class EntryDetailScreen extends StatelessWidget {
+  final JournalEntry entry;
+
+  const EntryDetailScreen({super.key, required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final date =
+        "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Entry Detail'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CustomTextField(
-              label: 'Title',
-              hint: 'Give it a title...',
-              controller: _titleCtrl,
+            Text(
+              entry.title,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 8),
+            Text(date, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Content',
-              hint: 'Write your thoughts...',
-              controller: _contentCtrl,
-            ),
+            Text(entry.content, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 24),
-            PrimaryButton(label: 'Save Entry', onPressed: _submit),
+            if (entry.attachments.isNotEmpty) ...[
+              const Text('Attachments',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ...entry.attachments.map((a) {
+                final isImage = a.type == 'image';
+                final file = File(a.url);
+                return ListTile(
+                  leading: isImage
+                      ? Image.file(file,
+                          width: 40, height: 40, fit: BoxFit.cover)
+                      : const Icon(Icons.insert_drive_file),
+                  title: Text(a.name),
+                  onTap: () => OpenFile.open(a.url),
+                );
+              }),
+            ],
           ],
         ),
       ),
@@ -894,6 +1072,8 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
 ]
 
 roohbaru_app/lib/screens/home_screen.dart: [
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -905,9 +1085,10 @@ import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
-import 'edit_entry_screen.dart';
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
+import 'entry_detail_screen.dart';
+import 'edit_entry_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
@@ -928,15 +1109,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Deletion'),
+        title: const Text('Delete Entry'),
         content: const Text('Are you sure you want to delete this entry?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
@@ -946,6 +1127,135 @@ class _HomeScreenState extends State<HomeScreen> {
     if (shouldDelete == true) {
       context.read<JournalBloc>().add(DeleteEntry(entry.id));
     }
+  }
+
+  Widget _buildEntryCard(BuildContext context, JournalEntry entry) {
+    final hasAttachments = entry.attachments.isNotEmpty;
+    final date =
+        "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
+
+    Attachment? thumbnail;
+    try {
+      thumbnail = entry.attachments.firstWhere((a) => a.type == 'image');
+    } catch (_) {}
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EntryDetailScreen(entry: entry),
+            ),
+          );
+        },
+        onLongPress: () {
+          showModalBottomSheet(
+            context: context,
+            builder: (_) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.edit),
+                    title: const Text('Edit'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditEntryScreen(entry: entry),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete),
+                    title: const Text('Delete'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _confirmDelete(context, entry);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              if (thumbnail != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(thumbnail.url),
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.book, color: Colors.black54),
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.title,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    if (hasAttachments)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.attach_file, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${entry.attachments.length} attachment(s)',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Icon(Icons.arrow_forward_ios, size: 14),
+                  const SizedBox(height: 8),
+                  Text(date, style: const TextStyle(fontSize: 12)),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -967,8 +1277,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text("Welcome, $name"),
-          centerTitle: true,
+          title: Text("Roohbaru — Hi, $name"),
           actions: [
             IconButton(
               icon: const Icon(Icons.logout),
@@ -978,7 +1287,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           ],
         ),
-        floatingActionButton: FloatingActionButton(
+        floatingActionButton: FloatingActionButton.extended(
           onPressed: () {
             Navigator.push(
               context,
@@ -987,70 +1296,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           },
-          child: const Icon(Icons.add),
+          icon: const Icon(Icons.add),
+          label: const Text("New Entry"),
         ),
         body: BlocBuilder<JournalBloc, JournalState>(
           builder: (context, state) {
             if (state is JournalLoading || state is JournalInitial) {
               return const Center(child: CircularProgressIndicator());
             } else if (state is JournalLoaded) {
-              if (state.entries.isEmpty) {
+              final entries = state.entries;
+              if (entries.isEmpty) {
                 return const Center(child: Text("No journal entries yet."));
               }
+
               return ListView.builder(
-                itemCount: state.entries.length,
+                itemCount: entries.length,
                 itemBuilder: (context, index) {
-                  final entry = state.entries[index];
-                  return ListTile(
-                    title: Text(entry.title),
-                    subtitle: Text(entry.content,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: Text(
-                      "${entry.timestamp.month}/${entry.timestamp.day}/${entry.timestamp.year}",
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (_) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                title: Text(entry.title,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
-                                subtitle: Text(entry.content),
-                              ),
-                              const Divider(),
-                              ListTile(
-                                leading: const Icon(Icons.edit),
-                                title: const Text('Edit'),
-                                onTap: () {
-                                  Navigator.of(context).pop();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          EditEntryScreen(entry: entry),
-                                    ),
-                                  );
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.delete),
-                                title: const Text('Delete'),
-                                onTap: () {
-                                  Navigator.of(context).pop();
-                                  _confirmDelete(context, entry);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
+                  return _buildEntryCard(context, entries[index]);
                 },
               );
             } else if (state is JournalError) {
@@ -1244,6 +1506,24 @@ class _IntroScreenState extends State<IntroScreen> {
 
 ]
 
+roohbaru_app/lib/services/file_storage_service.dart: [
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart';
+
+class FileStorageService {
+  Future<File> saveFileLocally(File sourceFile, String fileName) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final savedFile = File('${appDir.path}/attachments/$fileName');
+
+    // Ensure attachments folder exists
+    await savedFile.parent.create(recursive: true);
+    return sourceFile.copy(savedFile.path);
+  }
+}
+
+]
+
 roohbaru_app/lib/services/auth_service.dart: [
 import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -1354,6 +1634,7 @@ class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final bool obscureText;
   final Widget? suffixIcon;
+  final String? errorText;
 
   const CustomTextField({
     super.key,
@@ -1362,6 +1643,7 @@ class CustomTextField extends StatelessWidget {
     required this.controller,
     this.obscureText = false,
     this.suffixIcon,
+    this.errorText,
   });
 
   @override
@@ -1378,6 +1660,7 @@ class CustomTextField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             suffixIcon: suffixIcon,
+            errorText: errorText,
             contentPadding:
                 const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
             border: OutlineInputBorder(

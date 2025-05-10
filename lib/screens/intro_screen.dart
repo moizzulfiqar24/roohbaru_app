@@ -26,7 +26,7 @@ class _IntroScreenState extends State<IntroScreen> {
         // _controller.setLooping(true);
         _controller.setLooping(false); 
         _controller.setVolume(0);
-        _controller.play();
+        // _controller.play();
         // setState(() {});
         if (mounted) setState(() {});
       });
