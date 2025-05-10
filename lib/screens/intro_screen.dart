@@ -23,10 +23,12 @@ class _IntroScreenState extends State<IntroScreen> {
     super.initState();
     _controller = VideoPlayerController.asset('assets/videos/intro.mp4')
       ..initialize().then((_) {
-        _controller.setLooping(true);
+        // _controller.setLooping(true);
+        _controller.setLooping(false); 
         _controller.setVolume(0);
         _controller.play();
-        setState(() {});
+        // setState(() {});
+        if (mounted) setState(() {});
       });
   }
 
