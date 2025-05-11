@@ -17,7 +17,7 @@ import 'entry_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
-  const HomeScreen({super.key, required this.user});
+  const HomeScreen({Key? key, required this.user}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasAttachments = entry.attachments.isNotEmpty;
     final date =
         "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
-
     Attachment? thumbnail;
     try {
       thumbnail = entry.attachments.firstWhere((a) => a.type == 'image');
@@ -87,6 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
+                    if (entry.mood.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Chip(
+                          label: Text(entry.mood,
+                              style: const TextStyle(fontSize: 12)),
+                        ),
+                      ),
                     Text(
                       entry.content,
                       maxLines: 2,
@@ -176,7 +183,6 @@ class _HomeScreenState extends State<HomeScreen> {
               if (entries.isEmpty) {
                 return const Center(child: Text("No journal entries yet."));
               }
-
               return ListView.builder(
                 itemCount: entries.length,
                 itemBuilder: (context, index) {

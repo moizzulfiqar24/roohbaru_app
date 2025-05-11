@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 
 import '../blocs/journal_bloc.dart';
@@ -12,6 +11,7 @@ import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
+import 'entry_detail_screen.dart';
 
 class NewEntryScreen extends StatefulWidget {
   final String userId;
@@ -27,7 +27,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   final List<Attachment> _attachments = [];
   final FileStorageService _fileService = FileStorageService();
-
   bool _showTitleError = false;
 
   @override
@@ -53,7 +52,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
         final ext = file.extension?.toLowerCase() ?? '';
         String type = 'file';
-
         if (['jpg', 'jpeg', 'png', 'gif'].contains(ext)) {
           type = 'image';
         } else if (ext == 'pdf') {
@@ -66,12 +64,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           type: type,
         ));
       }
-
       setState(() {});
     }
   }
 
-  void _submitEntry(BuildContext context) {
+  void _submitEntry() {
     final title = _titleCtrl.text.trim();
     final content = _contentCtrl.text.trim();
 
@@ -89,8 +86,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       attachments: _attachments,
     );
 
+    // 1) Dispatch the AddEntry so it actually lands in Firestore & BLoC
     context.read<JournalBloc>().add(AddEntry(entry));
-    Navigator.of(context).pop();
+
+    // 2) Then navigate to detail—once the BLoC writes it, your snapshot/listener
+    //    or optimistic update will include it and EntryDetailScreen will find it.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => EntryDetailScreen(entryId: entry.id),
+      ),
+    );
   }
 
   Widget _buildAttachmentPreview() {
@@ -143,7 +148,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               const SizedBox(height: 24),
               PrimaryButton(
                 label: 'Save Entry',
-                onPressed: () => _submitEntry(context),
+                onPressed: _submitEntry,
               ),
             ],
           ),

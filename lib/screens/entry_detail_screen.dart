@@ -13,41 +13,28 @@ import 'edit_entry_screen.dart';
 class EntryDetailScreen extends StatelessWidget {
   final String entryId;
 
-  const EntryDetailScreen({super.key, required this.entryId});
+  const EntryDetailScreen({Key? key, required this.entryId}) : super(key: key);
 
-  void _editEntry(BuildContext context, JournalEntry entry) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditEntryScreen(entry: entry),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, JournalEntry entry) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Entry'),
-        content: const Text('Are you sure you want to delete this entry?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete == true) {
-      context.read<JournalBloc>().add(DeleteEntry(entry.id));
-      Navigator.pop(context); // Exit detail screen after deletion
-    }
-  }
+  static const List<String> moodOptions = [
+    'Happy',
+    'Excited',
+    'Calm',
+    'Grateful',
+    'Loving',
+    'Confident',
+    'Sad',
+    'Angry',
+    'Anxious',
+    'Lonely',
+    'Guilty',
+    'Jealous',
+    'Confused',
+    'Surprised',
+    'Bored',
+    'Restless',
+    'Inspired',
+    'Distracted',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -60,22 +47,42 @@ class EntryDetailScreen extends StatelessWidget {
             onPressed: () {
               final state = context.read<JournalBloc>().state;
               if (state is JournalLoaded) {
-                final match =
-                    state.entries.where((e) => e.id == entryId).toList();
-                if (match.isEmpty) return;
-                _editEntry(context, match.first);
+                final idx = state.entries.indexWhere((e) => e.id == entryId);
+                if (idx != -1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          EditEntryScreen(entry: state.entries[idx]),
+                    ),
+                  );
+                }
               }
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete),
-            onPressed: () {
-              final state = context.read<JournalBloc>().state;
-              if (state is JournalLoaded) {
-                final match =
-                    state.entries.where((e) => e.id == entryId).toList();
-                if (match.isEmpty) return;
-                _confirmDelete(context, match.first);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Delete Entry'),
+                  content:
+                      const Text('Are you sure you want to delete this entry?'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete',
+                            style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                context.read<JournalBloc>().add(DeleteEntry(entryId));
+                Navigator.pop(context);
               }
             },
           ),
@@ -84,13 +91,12 @@ class EntryDetailScreen extends StatelessWidget {
       body: BlocBuilder<JournalBloc, JournalState>(
         builder: (context, state) {
           if (state is JournalLoaded) {
-            final match = state.entries.where((e) => e.id == entryId).toList();
-
-            if (match.isEmpty) {
+            final idx = state.entries.indexWhere((e) => e.id == entryId);
+            if (idx == -1) {
               return const Center(child: Text("Entry not found."));
             }
 
-            final entry = match.first;
+            final entry = state.entries[idx];
             final date =
                 "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
 
@@ -99,49 +105,86 @@ class EntryDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(entry.title,
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(date, style: TextStyle(color: Colors.grey[600])),
                   const SizedBox(height: 16),
                   Text(entry.content, style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 24),
+
+                  // Attachments
                   if (entry.attachments.isNotEmpty) ...[
-                    const Text(
-                      'Attachments',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    const Text('Attachments',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     ...entry.attachments.map((a) {
                       final isImage = a.type == 'image';
                       final file = File(a.url);
                       return ListTile(
                         leading: isImage
-                            ? Image.file(
-                                file,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                              )
+                            ? Image.file(file,
+                                width: 40, height: 40, fit: BoxFit.cover)
                             : const Icon(Icons.insert_drive_file),
                         title: Text(a.name),
                         onTap: () => OpenFile.open(a.url),
                       );
                     }),
+                    const SizedBox(height: 24),
                   ],
+
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // Sentiment (read-only)
+                  Text('Sentiment: ${entry.sentiment}',
+                      style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 8),
+
+                  // Mood (dropdown to override)
+                  Row(
+                    children: [
+                      const Text('Mood: ',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500)),
+                      DropdownButton<String>(
+                        value: entry.mood.isNotEmpty ? entry.mood : null,
+                        hint: const Text('Select Mood'),
+                        items: moodOptions
+                            .map((m) =>
+                                DropdownMenuItem(value: m, child: Text(m)))
+                            .toList(),
+                        onChanged: (newMood) {
+                          if (newMood != null) {
+                            final overridden = entry.copyWith(mood: newMood);
+                            context
+                                .read<JournalBloc>()
+                                .add(UpdateEntry(overridden));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Suggestions
+                  const Text('Suggestions:',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  ...entry.suggestions.map((s) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child:
+                            Text('• $s', style: const TextStyle(fontSize: 14)),
+                      )),
                 ],
               ),
             );
           } else if (state is JournalError) {
             return Center(child: Text(state.message));
-          } else {
-            return const Center(child: CircularProgressIndicator());
           }
+          return const Center(child: CircularProgressIndicator());
         },
       ),
     );

@@ -2,6 +2,7 @@ roohbaru_app/lib/main.dart: [
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'services/auth_service.dart';
 import 'blocs/auth_bloc.dart';
@@ -11,12 +12,26 @@ import 'blocs/journal_bloc.dart';
 import 'screens/home_screen.dart';
 import 'screens/intro_screen.dart';
 
+// import 'package:http/http.dart' as http;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "assets/.env");
   await Firebase.initializeApp();
-
+  // testNetwork();
   runApp(const MyApp());
 }
+
+// void testNetwork() async {
+//   try {
+//     final r = await http.get(Uri.parse('https://www.google.com'));
+//     print('Google status: ${r.statusCode}');
+//   } catch (e) {
+//     print('Network test failed: $e');
+//   }
+// }
+
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -75,9 +90,9 @@ class Attachment {
 
   factory Attachment.fromMap(Map<String, dynamic> map) {
     return Attachment(
-      url: map['url'],
-      name: map['name'],
-      type: map['type'],
+      url: map['url'] as String,
+      name: map['name'] as String,
+      type: map['type'] as String,
     );
   }
 
@@ -98,26 +113,38 @@ class JournalEntry {
   final DateTime timestamp;
   final List<Attachment> attachments;
 
-  JournalEntry({
+  // NEW:
+  final String sentiment;
+  final String mood;
+  final List<String> suggestions;
+
+  const JournalEntry({
     required this.id,
     required this.userId,
     required this.title,
     required this.content,
     required this.timestamp,
     this.attachments = const [],
+    this.sentiment = '',
+    this.mood = '',
+    this.suggestions = const [],
   });
 
   factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return JournalEntry(
       id: doc.id,
-      userId: data['userId'],
-      title: data['title'],
-      content: data['content'],
+      userId: data['userId'] as String,
+      title: data['title'] as String,
+      content: data['content'] as String,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       attachments: (data['attachments'] as List<dynamic>? ?? [])
-          .map((a) => Attachment.fromMap(a))
+          .map((a) => Attachment.fromMap(a as Map<String, dynamic>))
           .toList(),
+      sentiment: data['sentiment'] as String? ?? '',
+      mood: data['mood'] as String? ?? '',
+      suggestions:
+          List<String>.from(data['suggestions'] as List<dynamic>? ?? []),
     );
   }
 
@@ -128,6 +155,9 @@ class JournalEntry {
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       'attachments': attachments.map((a) => a.toMap()).toList(),
+      'sentiment': sentiment,
+      'mood': mood,
+      'suggestions': suggestions,
     };
   }
 
@@ -135,6 +165,9 @@ class JournalEntry {
     String? title,
     String? content,
     List<Attachment>? attachments,
+    String? sentiment,
+    String? mood,
+    List<String>? suggestions,
   }) {
     return JournalEntry(
       id: id,
@@ -143,6 +176,9 @@ class JournalEntry {
       content: content ?? this.content,
       timestamp: timestamp,
       attachments: attachments ?? this.attachments,
+      sentiment: sentiment ?? this.sentiment,
+      mood: mood ?? this.mood,
+      suggestions: suggestions ?? this.suggestions,
     );
   }
 }
@@ -190,14 +226,18 @@ class DeleteEntry extends JournalEvent {
 
 roohbaru_app/lib/blocs/journal_bloc.dart: [
 import 'dart:developer';
-import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/journal_entry.dart';
+import '../services/ai_service.dart';
 import 'journal_event.dart';
 import 'journal_state.dart';
 
 class JournalBloc extends Bloc<JournalEvent, JournalState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AIService _aiService = AIService();
 
   JournalBloc() : super(JournalInitial()) {
     on<LoadEntries>(_onLoadEntries);
@@ -215,9 +255,8 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
           .where('userId', isEqualTo: event.userId)
           .orderBy('timestamp', descending: true)
           .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) => JournalEntry.fromFirestore(doc))
-              .toList());
+          .map((snap) =>
+              snap.docs.map((doc) => JournalEntry.fromFirestore(doc)).toList());
 
       await emit.forEach<List<JournalEntry>>(
         stream,
@@ -226,29 +265,66 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       );
     } catch (e, st) {
       log('Stream error: $e\n$st');
-      emit(JournalError('Something went wrong while loading entries.'));
+      emit(JournalError('Something went wrong while loading entries: $e'));
     }
   }
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
+    emit(JournalLoading());
     try {
-      await _firestore.collection('entries').add(event.entry.toMap());
+      final aiResult = await _aiService.analyzeEntry(event.entry.content);
+      final enriched = event.entry.copyWith(
+        sentiment: aiResult.sentiment,
+        mood: aiResult.mood,
+        suggestions: aiResult.suggestions,
+      );
+
+      // Write with your provided ID:
+      await _firestore
+          .collection('entries')
+          .doc(enriched.id)
+          .set(enriched.toMap());
+
+      // Optimistically update local list
+      final current = state is JournalLoaded
+          ? (state as JournalLoaded).entries
+          : <JournalEntry>[];
+      final updatedList = List<JournalEntry>.from(current)..add(enriched);
+      emit(JournalLoaded(updatedList));
     } catch (e, st) {
-      log('Add error: $e\n$st');
-      emit(JournalError('Failed to add entry.'));
+      log('AddEntry error: $e\n$st');
+      emit(JournalError('Failed to add entry: ${e.toString()}'));
     }
   }
 
   Future<void> _onUpdateEntry(
       UpdateEntry event, Emitter<JournalState> emit) async {
+    emit(JournalLoading());
     try {
+      final aiResult = await _aiService.analyzeEntry(event.entry.content);
+      final enriched = event.entry.copyWith(
+        sentiment: aiResult.sentiment,
+        mood: aiResult.mood,
+        suggestions: aiResult.suggestions,
+      );
+
       await _firestore
           .collection('entries')
-          .doc(event.entry.id)
-          .update(event.entry.toMap());
+          .doc(enriched.id)
+          .update(enriched.toMap());
+
+      if (state is JournalLoaded) {
+        final updated = (state as JournalLoaded)
+            .entries
+            .map((e) => e.id == enriched.id ? enriched : e)
+            .toList();
+        emit(JournalLoaded(updated));
+      } else {
+        emit(JournalLoaded([enriched]));
+      }
     } catch (e, st) {
-      log('Update error: $e\n$st');
-      emit(JournalError('Failed to update entry.'));
+      log('UpdateEntry error: $e\n$st');
+      emit(JournalError('Failed to update entry: ${e.toString()}'));
     }
   }
 
@@ -256,9 +332,17 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       DeleteEntry event, Emitter<JournalState> emit) async {
     try {
       await _firestore.collection('entries').doc(event.entryId).delete();
+
+      if (state is JournalLoaded) {
+        final remaining = (state as JournalLoaded)
+            .entries
+            .where((e) => e.id != event.entryId)
+            .toList();
+        emit(JournalLoaded(remaining));
+      }
     } catch (e, st) {
-      log('Delete error: $e\n$st');
-      emit(JournalError('Failed to delete entry.'));
+      log('DeleteEntry error: $e\n$st');
+      emit(JournalError('Failed to delete entry: ${e.toString()}'));
     }
   }
 }
@@ -474,7 +558,6 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 
 import '../blocs/journal_bloc.dart';
@@ -483,6 +566,7 @@ import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
+import 'entry_detail_screen.dart';
 
 class NewEntryScreen extends StatefulWidget {
   final String userId;
@@ -498,7 +582,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
   final List<Attachment> _attachments = [];
   final FileStorageService _fileService = FileStorageService();
-
   bool _showTitleError = false;
 
   @override
@@ -524,7 +607,6 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
 
         final ext = file.extension?.toLowerCase() ?? '';
         String type = 'file';
-
         if (['jpg', 'jpeg', 'png', 'gif'].contains(ext)) {
           type = 'image';
         } else if (ext == 'pdf') {
@@ -537,12 +619,11 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           type: type,
         ));
       }
-
       setState(() {});
     }
   }
 
-  void _submitEntry(BuildContext context) {
+  void _submitEntry() {
     final title = _titleCtrl.text.trim();
     final content = _contentCtrl.text.trim();
 
@@ -560,8 +641,16 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       attachments: _attachments,
     );
 
+    // 1) Dispatch the AddEntry so it actually lands in Firestore & BLoC
     context.read<JournalBloc>().add(AddEntry(entry));
-    Navigator.of(context).pop();
+
+    // 2) Then navigate to detail—once the BLoC writes it, your snapshot/listener
+    //    or optimistic update will include it and EntryDetailScreen will find it.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => EntryDetailScreen(entryId: entry.id),
+      ),
+    );
   }
 
   Widget _buildAttachmentPreview() {
@@ -614,7 +703,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               const SizedBox(height: 24),
               PrimaryButton(
                 label: 'Save Entry',
-                onPressed: () => _submitEntry(context),
+                onPressed: _submitEntry,
               ),
             ],
           ),
@@ -642,41 +731,28 @@ import 'edit_entry_screen.dart';
 class EntryDetailScreen extends StatelessWidget {
   final String entryId;
 
-  const EntryDetailScreen({super.key, required this.entryId});
+  const EntryDetailScreen({Key? key, required this.entryId}) : super(key: key);
 
-  void _editEntry(BuildContext context, JournalEntry entry) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditEntryScreen(entry: entry),
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext context, JournalEntry entry) async {
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Entry'),
-        content: const Text('Are you sure you want to delete this entry?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldDelete == true) {
-      context.read<JournalBloc>().add(DeleteEntry(entry.id));
-      Navigator.pop(context); // Exit detail screen after deletion
-    }
-  }
+  static const List<String> moodOptions = [
+    'Happy',
+    'Excited',
+    'Calm',
+    'Grateful',
+    'Loving',
+    'Confident',
+    'Sad',
+    'Angry',
+    'Anxious',
+    'Lonely',
+    'Guilty',
+    'Jealous',
+    'Confused',
+    'Surprised',
+    'Bored',
+    'Restless',
+    'Inspired',
+    'Distracted',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -689,22 +765,42 @@ class EntryDetailScreen extends StatelessWidget {
             onPressed: () {
               final state = context.read<JournalBloc>().state;
               if (state is JournalLoaded) {
-                final match =
-                    state.entries.where((e) => e.id == entryId).toList();
-                if (match.isEmpty) return;
-                _editEntry(context, match.first);
+                final idx = state.entries.indexWhere((e) => e.id == entryId);
+                if (idx != -1) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          EditEntryScreen(entry: state.entries[idx]),
+                    ),
+                  );
+                }
               }
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete),
-            onPressed: () {
-              final state = context.read<JournalBloc>().state;
-              if (state is JournalLoaded) {
-                final match =
-                    state.entries.where((e) => e.id == entryId).toList();
-                if (match.isEmpty) return;
-                _confirmDelete(context, match.first);
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Delete Entry'),
+                  content:
+                      const Text('Are you sure you want to delete this entry?'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Delete',
+                            style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                context.read<JournalBloc>().add(DeleteEntry(entryId));
+                Navigator.pop(context);
               }
             },
           ),
@@ -713,13 +809,12 @@ class EntryDetailScreen extends StatelessWidget {
       body: BlocBuilder<JournalBloc, JournalState>(
         builder: (context, state) {
           if (state is JournalLoaded) {
-            final match = state.entries.where((e) => e.id == entryId).toList();
-
-            if (match.isEmpty) {
+            final idx = state.entries.indexWhere((e) => e.id == entryId);
+            if (idx == -1) {
               return const Center(child: Text("Entry not found."));
             }
 
-            final entry = match.first;
+            final entry = state.entries[idx];
             final date =
                 "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
 
@@ -728,49 +823,86 @@ class EntryDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    entry.title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  Text(entry.title,
+                      style: const TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   Text(date, style: TextStyle(color: Colors.grey[600])),
                   const SizedBox(height: 16),
                   Text(entry.content, style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 24),
+
+                  // Attachments
                   if (entry.attachments.isNotEmpty) ...[
-                    const Text(
-                      'Attachments',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    const Text('Attachments',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     ...entry.attachments.map((a) {
                       final isImage = a.type == 'image';
                       final file = File(a.url);
                       return ListTile(
                         leading: isImage
-                            ? Image.file(
-                                file,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                              )
+                            ? Image.file(file,
+                                width: 40, height: 40, fit: BoxFit.cover)
                             : const Icon(Icons.insert_drive_file),
                         title: Text(a.name),
                         onTap: () => OpenFile.open(a.url),
                       );
                     }),
+                    const SizedBox(height: 24),
                   ],
+
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // Sentiment (read-only)
+                  Text('Sentiment: ${entry.sentiment}',
+                      style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 8),
+
+                  // Mood (dropdown to override)
+                  Row(
+                    children: [
+                      const Text('Mood: ',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500)),
+                      DropdownButton<String>(
+                        value: entry.mood.isNotEmpty ? entry.mood : null,
+                        hint: const Text('Select Mood'),
+                        items: moodOptions
+                            .map((m) =>
+                                DropdownMenuItem(value: m, child: Text(m)))
+                            .toList(),
+                        onChanged: (newMood) {
+                          if (newMood != null) {
+                            final overridden = entry.copyWith(mood: newMood);
+                            context
+                                .read<JournalBloc>()
+                                .add(UpdateEntry(overridden));
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Suggestions
+                  const Text('Suggestions:',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  ...entry.suggestions.map((s) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child:
+                            Text('• $s', style: const TextStyle(fontSize: 14)),
+                      )),
                 ],
               ),
             );
           } else if (state is JournalError) {
             return Center(child: Text(state.message));
-          } else {
-            return const Center(child: CircularProgressIndicator());
           }
+          return const Center(child: CircularProgressIndicator());
         },
       ),
     );
@@ -1277,7 +1409,7 @@ import 'entry_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final User user;
-  const HomeScreen({super.key, required this.user});
+  const HomeScreen({Key? key, required this.user}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -1294,7 +1426,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasAttachments = entry.attachments.isNotEmpty;
     final date =
         "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
-
     Attachment? thumbnail;
     try {
       thumbnail = entry.attachments.firstWhere((a) => a.type == 'image');
@@ -1347,6 +1478,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
+                    if (entry.mood.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Chip(
+                          label: Text(entry.mood,
+                              style: const TextStyle(fontSize: 12)),
+                        ),
+                      ),
                     Text(
                       entry.content,
                       maxLines: 2,
@@ -1436,7 +1575,6 @@ class _HomeScreenState extends State<HomeScreen> {
               if (entries.isEmpty) {
                 return const Center(child: Text("No journal entries yet."));
               }
-
               return ListView.builder(
                 itemCount: entries.length,
                 itemBuilder: (context, index) {
@@ -1709,6 +1847,119 @@ class AuthService {
       await _auth.signOut();
     } catch (e) {
       log('Sign-out error: $e');
+    }
+  }
+}
+
+]
+
+roohbaru_app/lib/services/ai_service.dart: [
+// lib/services/ai_service.dart
+
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class AIResult {
+  final String sentiment;
+  final String mood;
+  final List<String> suggestions;
+
+  AIResult({
+    required this.sentiment,
+    required this.mood,
+    required this.suggestions,
+  });
+}
+
+class AIService {
+  final String _apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
+
+  static const _endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+  static const _model = 'llama3-8b-8192';
+
+  Future<AIResult> analyzeEntry(String content) async {
+    if (_apiKey.isEmpty) {
+      throw Exception('GROQ_API_KEY not set in .env');
+    }
+
+    final messages = [
+      {
+        'role': 'system',
+        'content': '''
+You are a helpful assistant. Analyze the following journal entry and:
+1) Determine overall sentiment (Positive/Negative/Neutral).
+2) Pick exactly one mood from: Happy, Excited, Calm, Grateful, Loving, Confident, Sad, Angry, Anxious, Lonely, Guilty, Jealous, Confused, Surprised, Bored, Restless, Inspired, Distracted.
+3) Provide three decisive suggestions (music, quote, meditation) based on that mood.
+
+OUTPUT ONLY a JSON object with keys "sentiment", "mood", and "suggestions" (an array of 3 strings), with no extra commentary.
+'''
+      },
+      {
+        'role': 'user',
+        'content': content,
+      }
+    ];
+
+    final body = {
+      'model': _model,
+      'messages': messages,
+      'temperature': 0.2,
+    };
+
+    final resp = await http.post(
+      Uri.parse(_endpoint),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (resp.statusCode != 200) {
+      throw Exception('Groq API error ${resp.statusCode}: ${resp.body}');
+    }
+
+    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
+    final raw =
+        (decoded['choices'] as List).first['message']['content'] as String;
+
+    // locate the JSON object
+    final start = raw.indexOf('{');
+    if (start < 0) {
+      throw FormatException('Couldn’t find JSON start in Groq response: $raw');
+    }
+
+    // try to find the last closing brace
+    int end = raw.lastIndexOf('}');
+    // if there is no trailing '}', but there is a closing ']',
+    // assume JSON ended at that array and append '}'
+    if (end < 0) {
+      final arrayEnd = raw.lastIndexOf(']');
+      if (arrayEnd < 0 || arrayEnd <= start) {
+        throw FormatException('Couldn’t find JSON end in Groq response: $raw');
+      }
+      // include the ']' then add the missing '}'
+      final jsonText = raw.substring(start, arrayEnd + 1) + '}';
+      return _parseJson(jsonText, raw);
+    }
+
+    // normal case: we have both braces
+    final jsonText = raw.substring(start, end + 1);
+    return _parseJson(jsonText, raw);
+  }
+
+  AIResult _parseJson(String jsonText, String raw) {
+    try {
+      final map = jsonDecode(jsonText) as Map<String, dynamic>;
+      return AIResult(
+        sentiment: map['sentiment'] as String,
+        mood: map['mood'] as String,
+        suggestions: List<String>.from(map['suggestions'] as List),
+      );
+    } catch (e) {
+      throw FormatException(
+          'Invalid JSON from Groq:\n$jsonText\n\nraw was:\n$raw');
     }
   }
 }
