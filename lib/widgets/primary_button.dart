@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 class PrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
+  final Color backgroundColor;
+  final Color textColor;
 
   const PrimaryButton({
     super.key,
     required this.label,
     this.onPressed,
+    this.backgroundColor = Colors.black, // default: black
+    this.textColor = Colors.white, // default: white
   });
 
   @override
@@ -18,15 +22,20 @@ class PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
+          backgroundColor: backgroundColor,
+          foregroundColor: textColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
         child: Text(
           label,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: textColor,
+            fontSize: 16,
+            // fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
