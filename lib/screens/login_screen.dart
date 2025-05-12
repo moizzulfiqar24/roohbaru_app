@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Or login with'),
+                      child: Text('Or Log In With'),
                     ),
                     Expanded(child: Divider()),
                   ],
@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Sign up',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.blue,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

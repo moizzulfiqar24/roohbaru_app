@@ -255,7 +255,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       size: 20,
                                       color: Colors.black87,
                                     ),
-                                    onPressed: () {},
+                                    onPressed: () {
+                                      context
+                                          .read<AuthBloc>()
+                                          .add(SignOutRequested());
+                                    },
                                   ),
                                 ),
                               ),

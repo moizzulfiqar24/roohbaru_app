@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:roohbaru_app/widgets/social_button.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
 import '../blocs/auth_state.dart';
@@ -58,12 +59,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (!_isPasswordValid) return;
 
-    if (!_agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please agree to the terms first.")),
-      );
-      return;
-    }
+    // if (!_agreedToTerms) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text("Please agree to the terms first.")),
+    //   );
+    //   return;
+    // }
 
     context.read<AuthBloc>().add(
           EmailSignUpRequested(name: name, email: email, password: pass),
@@ -185,80 +186,80 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Transform.scale(
-                        scale: 1.4,
-                        child: Checkbox(
-                          value: _agreedToTerms,
-                          shape: const CircleBorder(),
-                          onChanged: (val) =>
-                              setState(() => _agreedToTerms = val ?? false),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.black54),
-                              children: [
-                                TextSpan(
-                                    text: 'By Signing up, you agree to the '),
-                                TextSpan(
-                                  text: 'Terms of Service',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black),
-                                ),
-                                TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _handleGoogleSignIn,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Image.asset(
-                            'assets/images/google.png',
-                            height: 24,
-                            width: 24,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: const Icon(Icons.apple, size: 28),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
+                  // Row(
+                  //   crossAxisAlignment: CrossAxisAlignment.start,
+                  //   children: [
+                  //     Transform.scale(
+                  //       scale: 1.4,
+                  //       child: Checkbox(
+                  //         value: _agreedToTerms,
+                  //         shape: const CircleBorder(),
+                  //         onChanged: (val) =>
+                  //             setState(() => _agreedToTerms = val ?? false),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 8),
+                  //     Expanded(
+                  //       child: Padding(
+                  //         padding: const EdgeInsets.only(top: 10),
+                  //         child: RichText(
+                  //           text: const TextSpan(
+                  //             style: TextStyle(
+                  //                 fontSize: 13, color: Colors.black54),
+                  //             children: [
+                  //               TextSpan(
+                  //                   text: 'By Signing up, you agree to the '),
+                  //               TextSpan(
+                  //                 text: 'Terms of Service',
+                  //                 style: TextStyle(
+                  //                     fontWeight: FontWeight.bold,
+                  //                     color: Colors.black),
+                  //               ),
+                  //               TextSpan(text: ' and '),
+                  //               TextSpan(
+                  //                 text: 'Privacy Policy',
+                  //                 style: TextStyle(
+                  //                     fontWeight: FontWeight.bold,
+                  //                     color: Colors.black),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     GestureDetector(
+                  //       onTap: _handleGoogleSignIn,
+                  //       child: Container(
+                  //         padding: const EdgeInsets.all(12),
+                  //         decoration: BoxDecoration(
+                  //           shape: BoxShape.circle,
+                  //           border: Border.all(color: Colors.grey.shade300),
+                  //         ),
+                  //         child: Image.asset(
+                  //           'assets/images/google.png',
+                  //           height: 24,
+                  //           width: 24,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 24),
+                  //     Container(
+                  //       padding: const EdgeInsets.all(12),
+                  //       decoration: BoxDecoration(
+                  //         shape: BoxShape.circle,
+                  //         border: Border.all(color: Colors.grey.shade300),
+                  //       ),
+                  //       child: const Icon(Icons.apple, size: 28),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       if (state is AuthLoading) {
@@ -271,30 +272,82 @@ class _SignupScreenState extends State<SignupScreen> {
                       );
                     },
                   ),
+                  // const SizedBox(height: 16),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     const Text("Already have an account? "),
+                  //     GestureDetector(
+                  //       onTap: () {
+                  //         Navigator.pushReplacement(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //               builder: (_) => const LoginScreen()),
+                  //         );
+                  //       },
+                  //       child: const Text(
+                  //         'Log in',
+                  //         style: TextStyle(
+                  //           fontWeight: FontWeight.bold,
+                  //           decoration: TextDecoration.underline,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: const [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('Or Sign Up With'),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      SocialButton(
+                        assetPath: 'assets/images/google.png',
+                        onTap: () => context
+                            .read<AuthBloc>()
+                            .add(GoogleSignInRequested()),
+                      ),
+                      const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/apple.png',
+                        onTap: () {
+                          // TODO: implement Apple Sign In
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("Already have an account? "),
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const LoginScreen()),
-                          );
-                        },
-                        child: const Text(
-                          'Log in',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LoginScreen()),
+                        ),
+                        child: Text(
+                          'Log In',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
+                            // color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                            // decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
