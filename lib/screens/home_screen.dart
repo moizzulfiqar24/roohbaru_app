@@ -236,7 +236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             },
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 6),
 
                           // journal entries
                           if (journalState is JournalLoading)
