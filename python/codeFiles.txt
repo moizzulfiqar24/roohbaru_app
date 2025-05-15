@@ -893,6 +893,7 @@ class EntryDetailScreen extends StatelessWidget {
 roohbaru_app/lib/screens/signup_screen.dart: [
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:roohbaru_app/widgets/social_button.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
 import '../blocs/auth_state.dart';
@@ -951,12 +952,12 @@ class _SignupScreenState extends State<SignupScreen> {
 
     if (!_isPasswordValid) return;
 
-    if (!_agreedToTerms) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please agree to the terms first.")),
-      );
-      return;
-    }
+    // if (!_agreedToTerms) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     const SnackBar(content: Text("Please agree to the terms first.")),
+    //   );
+    //   return;
+    // }
 
     context.read<AuthBloc>().add(
           EmailSignUpRequested(name: name, email: email, password: pass),
@@ -1078,80 +1079,80 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Transform.scale(
-                        scale: 1.4,
-                        child: Checkbox(
-                          value: _agreedToTerms,
-                          shape: const CircleBorder(),
-                          onChanged: (val) =>
-                              setState(() => _agreedToTerms = val ?? false),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: RichText(
-                            text: const TextSpan(
-                              style: TextStyle(
-                                  fontSize: 13, color: Colors.black54),
-                              children: [
-                                TextSpan(
-                                    text: 'By Signing up, you agree to the '),
-                                TextSpan(
-                                  text: 'Terms of Service',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black),
-                                ),
-                                TextSpan(text: ' and '),
-                                TextSpan(
-                                  text: 'Privacy Policy',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: _handleGoogleSignIn,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey.shade300),
-                          ),
-                          child: Image.asset(
-                            'assets/images/google.png',
-                            height: 24,
-                            width: 24,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: const Icon(Icons.apple, size: 28),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
+                  // Row(
+                  //   crossAxisAlignment: CrossAxisAlignment.start,
+                  //   children: [
+                  //     Transform.scale(
+                  //       scale: 1.4,
+                  //       child: Checkbox(
+                  //         value: _agreedToTerms,
+                  //         shape: const CircleBorder(),
+                  //         onChanged: (val) =>
+                  //             setState(() => _agreedToTerms = val ?? false),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 8),
+                  //     Expanded(
+                  //       child: Padding(
+                  //         padding: const EdgeInsets.only(top: 10),
+                  //         child: RichText(
+                  //           text: const TextSpan(
+                  //             style: TextStyle(
+                  //                 fontSize: 13, color: Colors.black54),
+                  //             children: [
+                  //               TextSpan(
+                  //                   text: 'By Signing up, you agree to the '),
+                  //               TextSpan(
+                  //                 text: 'Terms of Service',
+                  //                 style: TextStyle(
+                  //                     fontWeight: FontWeight.bold,
+                  //                     color: Colors.black),
+                  //               ),
+                  //               TextSpan(text: ' and '),
+                  //               TextSpan(
+                  //                 text: 'Privacy Policy',
+                  //                 style: TextStyle(
+                  //                     fontWeight: FontWeight.bold,
+                  //                     color: Colors.black),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     GestureDetector(
+                  //       onTap: _handleGoogleSignIn,
+                  //       child: Container(
+                  //         padding: const EdgeInsets.all(12),
+                  //         decoration: BoxDecoration(
+                  //           shape: BoxShape.circle,
+                  //           border: Border.all(color: Colors.grey.shade300),
+                  //         ),
+                  //         child: Image.asset(
+                  //           'assets/images/google.png',
+                  //           height: 24,
+                  //           width: 24,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 24),
+                  //     Container(
+                  //       padding: const EdgeInsets.all(12),
+                  //       decoration: BoxDecoration(
+                  //         shape: BoxShape.circle,
+                  //         border: Border.all(color: Colors.grey.shade300),
+                  //       ),
+                  //       child: const Icon(Icons.apple, size: 28),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
                   BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, state) {
                       if (state is AuthLoading) {
@@ -1164,30 +1165,82 @@ class _SignupScreenState extends State<SignupScreen> {
                       );
                     },
                   ),
+                  // const SizedBox(height: 16),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: [
+                  //     const Text("Already have an account? "),
+                  //     GestureDetector(
+                  //       onTap: () {
+                  //         Navigator.pushReplacement(
+                  //           context,
+                  //           MaterialPageRoute(
+                  //               builder: (_) => const LoginScreen()),
+                  //         );
+                  //       },
+                  //       child: const Text(
+                  //         'Log in',
+                  //         style: TextStyle(
+                  //           fontWeight: FontWeight.bold,
+                  //           decoration: TextDecoration.underline,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: const [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('Or Sign Up With'),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      SocialButton(
+                        assetPath: 'assets/images/google.png',
+                        onTap: () => context
+                            .read<AuthBloc>()
+                            .add(GoogleSignInRequested()),
+                      ),
+                      const SizedBox(width: 12),
+                      SocialButton(
+                        assetPath: 'assets/images/apple.png',
+                        onTap: () {
+                          // TODO: implement Apple Sign In
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text("Already have an account? "),
                       GestureDetector(
-                        onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const LoginScreen()),
-                          );
-                        },
-                        child: const Text(
-                          'Log in',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LoginScreen()),
+                        ),
+                        child: Text(
+                          'Log In',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
+                            // color: Theme.of(context).colorScheme.primary,
+                            color: Colors.blue,
+                            fontWeight: FontWeight.w600,
+                            // decoration: TextDecoration.underline,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
                 ],
               ),
             ),
@@ -1344,7 +1397,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Expanded(child: Divider()),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Or login with'),
+                      child: Text('Or Log In With'),
                     ),
                     Expanded(child: Divider()),
                   ],
@@ -1379,7 +1432,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Sign up',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
+                          color: Colors.blue,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1613,8 +1666,14 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
-  DateTime get _weekStart =>
-      _focusedDate.subtract(Duration(days: _focusedDate.weekday - 1));
+  /// Start of the week (Monday) at midnight
+  DateTime get _weekStart {
+    final today =
+        DateTime(_focusedDate.year, _focusedDate.month, _focusedDate.day);
+    return today.subtract(Duration(days: today.weekday - 1));
+  }
+
+  /// End of the week (Sunday) at midnight
   DateTime get _weekEnd => _weekStart.add(const Duration(days: 6));
 
   // Mood → icon
@@ -1710,17 +1769,17 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          title: Text('Roohbaru — Hi, $name'),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout, color: Colors.black87),
-              onPressed: () => context.read<AuthBloc>().add(SignOutRequested()),
-            )
-          ],
-        ),
+        // appBar: AppBar(
+        //   title: Text('Roohbaru — Hi, $name'),
+        //   backgroundColor: Colors.transparent,
+        //   elevation: 0,
+        //   actions: [
+        //     IconButton(
+        //       icon: const Icon(Icons.logout, color: Colors.black87),
+        //       onPressed: () => context.read<AuthBloc>().add(SignOutRequested()),
+        //     )
+        //   ],
+        // ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => Navigator.push(
             context,
@@ -1731,21 +1790,29 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         body: BlocBuilder<JournalBloc, JournalState>(
           builder: (ctx, journalState) {
-            List<JournalEntry> entries = [];
-            if (journalState is JournalLoaded) {
-              entries = journalState.entries;
+            // grab all entries
+            final entries = journalState is JournalLoaded
+                ? journalState.entries
+                : <JournalEntry>[];
+
+            // filter & sort
+            List<JournalEntry> filtered;
+            if (_viewMode == ViewMode.day) {
+              filtered = entries
+                  .where((e) => _sameDay(e.timestamp, _focusedDate))
+                  .toList();
+            } else {
+              final start = _weekStart;
+              final end = _weekEnd;
+              filtered = entries.where((e) {
+                final d = DateTime(
+                    e.timestamp.year, e.timestamp.month, e.timestamp.day);
+                return d.compareTo(start) >= 0 && d.compareTo(end) <= 0;
+              }).toList();
             }
+            filtered.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-            // filter
-            final filtered = entries.where((e) {
-              if (_viewMode == ViewMode.day) {
-                return _sameDay(e.timestamp, _focusedDate);
-              } else {
-                return !e.timestamp.isBefore(_weekStart) &&
-                    !e.timestamp.isAfter(_weekEnd);
-              }
-            }).toList();
-
+            // header gradient from first entry
             final headerGrad = filtered.isNotEmpty
                 ? _gradientFor(filtered.first.mood)
                 : const LinearGradient(
@@ -1759,9 +1826,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     gradient: headerGrad,
                     borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(12)),
+                        bottom: Radius.circular(30)),
                   ),
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(top: 20, bottom: 16),
                   child: SafeArea(
                     bottom: false,
                     child: Padding(
@@ -1775,13 +1842,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Text(
                                 'Journal',
                                 style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white),
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
                               ),
                               const Spacer(),
-                              // Day/Week container
                               Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
@@ -1796,23 +1865,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              // Search
+                              const SizedBox(width: 6),
                               Container(
                                 width: 40,
-                                height: 32,
+                                height: 40,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   border:
                                       Border.all(color: Colors.grey.shade300),
                                 ),
-                                child: IconButton(
-                                  icon: const Icon(Icons.search,
-                                      size: 20, color: Colors.black87),
-                                  onPressed: () {
-                                    // TODO
-                                  },
+                                child: Center(
+                                  child: IconButton(
+                                    icon: const Icon(
+                                      Icons.search,
+                                      size: 20,
+                                      color: Colors.black87,
+                                    ),
+                                    onPressed: () {
+                                      context
+                                          .read<AuthBloc>()
+                                          .add(SignOutRequested());
+                                    },
+                                  ),
                                 ),
                               ),
                             ],
@@ -1858,9 +1933,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildToggle(String label, ViewMode mode) {
     final selected = _viewMode == mode;
     return GestureDetector(
-      onTap: () {
-        setState(() => _viewMode = mode);
-      },
+      onTap: () => setState(() => _viewMode = mode),
       child: Container(
         width: 60,
         height: 32,
@@ -1885,11 +1958,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final days = List.generate(7, (i) => start.add(Duration(days: i)));
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.only(top: 5, bottom: 0),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: SingleChildScrollView(
@@ -1930,7 +2003,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ][d.weekday - 1],
                       style: TextStyle(
                         fontSize: 12,
-                        color: sel ? Colors.white70 : Colors.black54,
+                        color: sel ? Colors.white : Colors.black54,
+                        fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -1949,9 +2023,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withOpacity(0.7),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
@@ -1959,20 +2033,20 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () => setState(() {
-              _focusedDate = start.subtract(const Duration(days: 1));
-            }),
+            icon: const Icon(Icons.chevron_left, size: 30),
+            onPressed: () => setState(
+                () => _focusedDate = start.subtract(const Duration(days: 1))),
           ),
+          const SizedBox(width: 8),
           Text(
             '${_fmtMonthDay(start)} - ${_fmtMonthDay(end)}',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () => setState(() {
-              _focusedDate = end.add(const Duration(days: 1));
-            }),
+            icon: const Icon(Icons.chevron_right, size: 30),
+            onPressed: () =>
+                setState(() => _focusedDate = end.add(const Duration(days: 1))),
           ),
         ],
       ),
@@ -2004,9 +2078,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(e.title,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      e.title,
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   if (hasAttach) const Icon(Icons.attach_file, size: 20),
                 ],
