@@ -15,6 +15,7 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
+import '../widgets/navbar.dart';
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
 import 'entry_detail_screen.dart';
@@ -29,10 +30,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
+  int _selectedIndex = 0;
 
   static const _defaultBg = Color(0xFFFFFAF7);
 
-  /// Only these six colours allowed
   static const Map<String, Color> _moodBgColor = {
     'Happy': Color(0xFFAADAF0),
     'Excited': Color(0xFFD6D3F9),
@@ -68,11 +69,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'good evening';
   }
 
-  /// Truncate to [limit] words, adding "..." if exceeded.
   String _truncateWords(String text, int limit) {
     final words = text.split(RegExp(r'\s+'));
     if (words.length <= limit) return text;
     return words.take(limit).join(' ') + '...';
+  }
+
+  void _onAddPressed() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NewEntryScreen(userId: widget.user.uid),
+      ),
+    );
+  }
+
+  void _onItemSelected(int index) {
+    setState(() => _selectedIndex = index);
   }
 
   @override
@@ -89,20 +102,20 @@ class _HomeScreenState extends State<HomeScreen> {
               .showSnackBar(SnackBar(content: Text(st.message)));
         }
       },
-      child: Scaffold(
-        body: BlocBuilder<JournalBloc, JournalState>(
-          builder: (ctx, journalState) {
-            // pick background colour from latest mood
-            Color bg = _defaultBg;
-            List<JournalEntry> all = [];
-            if (journalState is JournalLoaded) {
-              all = journalState.entries;
-              if (all.isNotEmpty) {
-                bg = _moodBgColor[all.first.mood] ?? _defaultBg;
-              }
+      child: BlocBuilder<JournalBloc, JournalState>(
+        builder: (ctx, journalState) {
+          Color bg = _defaultBg;
+          List<JournalEntry> all = [];
+          if (journalState is JournalLoaded) {
+            all = journalState.entries;
+            if (all.isNotEmpty) {
+              bg = _moodBgColor[all.first.mood] ?? _defaultBg;
             }
+          }
 
-            return Stack(
+          return Scaffold(
+            backgroundColor: bg,
+            body: Stack(
               children: [
                 Container(color: bg),
                 Positioned.fill(
@@ -118,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // top icons
                           Row(
                             children: [
                               IconButton(
@@ -127,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   size: 30,
                                   color: Colors.black,
                                 ),
-                                onPressed: () {/* later */},
+                                onPressed: () {},
                               ),
                               const Spacer(),
                               IconButton(
@@ -144,7 +156,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-
                           Center(
                             child: Column(
                               children: [
@@ -168,8 +179,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 24),
-
-                          // quote card
                           FutureBuilder<Quote>(
                             future: _quoteFuture,
                             builder: (c, snap) {
@@ -217,10 +226,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(
                                       q.text.toLowerCase(),
                                       style: const TextStyle(
-                                          fontFamily: 'lufga-light-italic',
-                                          fontSize: 20,
-                                          color: Color(0xFF473623),
-                                          fontWeight: FontWeight.bold),
+                                        fontFamily: 'lufga-light-italic',
+                                        fontSize: 20,
+                                        color: Color(0xFF473623),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                     const SizedBox(height: 20),
                                     Text(
@@ -235,10 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                             },
                           ),
-
                           const SizedBox(height: 6),
-
-                          // journal entries
                           if (journalState is JournalLoading)
                             const Center(child: CircularProgressIndicator())
                           else if (journalState is JournalError)
@@ -253,31 +260,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-            );
-          },
-        ),
-        // bottomNavigationBar: ClipRRect(
-        //   borderRadius: const BorderRadius.only(
-        //     topLeft: Radius.circular(12),
-        //     topRight: Radius.circular(12),
-        //   ),
-        //   child: Container(
-        //     height: 56,
-        //     color: Colors.black,
-        //     child: Center(
-        //       child: IconButton(
-        //         iconSize: 32,
-        //         icon: const Icon(Icons.add, color: Colors.white),
-        //         onPressed: () => Navigator.push(
-        //           context,
-        //           MaterialPageRoute(
-        //             builder: (_) => NewEntryScreen(userId: widget.user.uid),
-        //           ),
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
+            ),
+            bottomNavigationBar: Container(
+              color: bg,
+              child: CustomNavbar(
+                selectedIndex: _selectedIndex,
+                onItemSelected: _onItemSelected,
+                onAddPressed: _onAddPressed,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -301,13 +294,14 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10),
           child: Row(
             children: [
-              Text(label.toLowerCase(),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    // fontWeight: FontWeight.bold,
-                    fontFamily: 'lufga-bold',
-                    color: Color(0xFF473623),
-                  )),
+              Text(
+                label.toLowerCase(),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontFamily: 'lufga-bold',
+                  color: Color(0xFF473623),
+                ),
+              ),
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.push(
@@ -319,9 +313,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Text(
                   '+ add new',
                   style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.blue),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
                 ),
               ),
             ],
@@ -341,7 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final dow = DateFormat('EEE').format(e.timestamp).toLowerCase();
     final dayNum = DateFormat('d').format(e.timestamp);
 
-    // only keep images whose files exist
     final imgs = e.attachments
         .where((a) => a.type == 'image' && File(a.url).existsSync())
         .map((a) => a.url)
@@ -357,7 +351,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // date pill
             Container(
               width: 55,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -369,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     dow,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontFamily: 'lufga-semi-bold',
                       color: Color(0xFF473623),
@@ -387,31 +380,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-
             const SizedBox(width: 12),
-
-            // content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // title
                   Text(
                     e.title.toLowerCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontFamily: 'lufga-semi-bold-italic',
                       color: Color(0xFF473623),
                     ),
                   ),
-                  // const SizedBox(height: 2),
-                  // truncated content
                   Text(
                     _truncateWords(e.content, 30).toLowerCase(),
                     style: const TextStyle(
                       fontSize: 16,
                       height: 1.4,
-                      // fontFamily: 'lufga-light',
                       fontFamily: 'lufga-regular',
                     ),
                   ),

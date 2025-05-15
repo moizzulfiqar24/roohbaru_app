@@ -26,6 +26,7 @@ dependencies:
   open_file: ^3.5.10
   flutter_dotenv: ^5.2.1
   intl: ^0.20.2
+  rive: ^0.12.3
 
 dev_dependencies:
   flutter_test:
@@ -40,6 +41,14 @@ flutter:
     - assets/images/
     - assets/videos/
     - assets/fonts/
+    - assets/rive/house.riv
+    - assets/rive/button.riv
+    - assets/rive/check.riv
+    - assets/rive/confetti.riv
+    - assets/rive/icons.riv
+    - assets/rive/menu_button.riv
+    - assets/rive/shapes.riv
+
   
   fonts:
     - family: lufga-medium
