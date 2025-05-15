@@ -292,12 +292,29 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       UpdateEntry event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
     try {
-      final aiResult = await _aiService.analyzeEntry(event.entry.content);
-      final updatedEntry = event.entry.copyWith(
-        sentiment: aiResult.sentiment,
-        mood: aiResult.mood,
-        suggestions: [aiResult.song, aiResult.movie],
-      );
+      final existingDoc =
+          await _firestore.collection('entries').doc(event.entry.id).get();
+
+      if (!existingDoc.exists) {
+        emit(JournalError('Entry not found for update.'));
+        return;
+      }
+
+      final previous = JournalEntry.fromFirestore(existingDoc);
+
+      // Only call AI if content changed
+      JournalEntry updatedEntry;
+      if (event.entry.content.trim() != previous.content.trim()) {
+        final aiResult = await _aiService.analyzeEntry(event.entry.content);
+        updatedEntry = event.entry.copyWith(
+          sentiment: aiResult.sentiment,
+          mood: aiResult.mood,
+          suggestions: [aiResult.song, aiResult.movie],
+        );
+      } else {
+        // Just a local edit (e.g., user changed mood or attachments)
+        updatedEntry = event.entry;
+      }
 
       await _firestore
           .collection('entries')
@@ -858,7 +875,9 @@ class EntryDetailScreen extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500)),
                       DropdownButton<String>(
-                        value: entry.mood.isNotEmpty ? entry.mood : null,
+                        value: moodOptions.contains(entry.mood)
+                            ? entry.mood
+                            : null,
                         hint: const Text('Select Mood'),
                         items: moodOptions
                             .map((m) =>

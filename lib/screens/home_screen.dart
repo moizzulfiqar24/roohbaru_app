@@ -132,8 +132,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Spacer(),
                               IconButton(
                                 icon: const Icon(
-                                  Icons.search_rounded,
-                                  size: 30,
+                                  Icons.logout,
+                                  size: 25,
                                   color: Colors.black,
                                 ),
                                 onPressed: () {
