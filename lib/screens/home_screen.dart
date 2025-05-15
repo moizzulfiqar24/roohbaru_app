@@ -258,7 +258,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: Container(
             height: 56,
-            // color: Colors.black.withOpacity(0.7),
             color: Colors.black,
             child: Center(
               child: IconButton(
@@ -294,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       sections.add(
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
           child: Row(
             children: [
               Text(label,
@@ -333,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final dow = DateFormat('EEE').format(e.timestamp).toLowerCase();
     final dayNum = DateFormat('d').format(e.timestamp);
 
-    // only keep images whose file actually exists
+    // only keep images whose files exist
     final imgs = e.attachments
         .where((a) => a.type == 'image' && File(a.url).existsSync())
         .map((a) => a.url)
@@ -344,88 +343,106 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
       ),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                // date box
-                Container(
-                  width: 50,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(8),
+            // date pill
+            Container(
+              width: 50,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    dow,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade600),
                   ),
-                  child: Column(
-                    children: [
-                      Text(dow,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 4),
-                      Text(dayNum,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    dayNum,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // text content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(e.title,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      Text(e.content,
-                          maxLines: 3, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
 
-            // images row
-            if (imgs.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 80,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: imgs.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final file = File(imgs[i]);
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        file,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, st) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.broken_image,
-                              size: 40, color: Colors.white),
+            const SizedBox(width: 12),
+
+            // content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // title + edit icon
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          e.title,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade800,
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                      InkWell(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EntryDetailScreen(entryId: e.id),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.edit,
+                          size: 20,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    e.content,
+                    style: const TextStyle(fontSize: 16, height: 1.4),
+                  ),
+                  if (imgs.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: imgs.take(2).map((path) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(path),
+                                height: 120,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => Container(
+                                  height: 120,
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
