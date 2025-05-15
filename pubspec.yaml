@@ -25,6 +25,7 @@ dependencies:
   path_provider: ^2.1.2
   open_file: ^3.5.10
   flutter_dotenv: ^5.2.1
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -38,3 +39,24 @@ flutter:
     - assets/.env
     - assets/images/
     - assets/videos/
+    - assets/fonts/
+  
+  fonts:
+    - family: lufga-medium
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-medium.otf
+    - family: lufga-light
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-light.otf
+    - family: lufga-bold
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-bold.otf
+    - family: lufga-regular
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-regular.otf
+    - family: lufga-light-italic
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-lightitalic.otf
+    - family: lufga-semi-bold
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-semibold.otf

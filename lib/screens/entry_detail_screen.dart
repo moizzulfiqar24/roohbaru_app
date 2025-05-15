@@ -1,3 +1,5 @@
+// lib/screens/entry_detail_screen.dart
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -100,6 +102,11 @@ class EntryDetailScreen extends StatelessWidget {
             final date =
                 "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
 
+            // filter out attachments whose files are missing
+            final validAttachments = entry.attachments.where((a) {
+              return File(a.url).existsSync();
+            }).toList();
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -114,19 +121,30 @@ class EntryDetailScreen extends StatelessWidget {
                   Text(entry.content, style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 24),
 
-                  // Attachments
-                  if (entry.attachments.isNotEmpty) ...[
+                  // Attachments (only if any valid files)
+                  if (validAttachments.isNotEmpty) ...[
                     const Text('Attachments',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
-                    ...entry.attachments.map((a) {
+                    ...validAttachments.map((a) {
                       final isImage = a.type == 'image';
                       final file = File(a.url);
                       return ListTile(
                         leading: isImage
-                            ? Image.file(file,
-                                width: 40, height: 40, fit: BoxFit.cover)
-                            : const Icon(Icons.insert_drive_file),
+                            ? Image.file(
+                                file,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => Container(
+                                  width: 40,
+                                  height: 40,
+                                  color: Colors.grey.shade300,
+                                  child:
+                                      const Icon(Icons.broken_image, size: 24),
+                                ),
+                              )
+                            : const Icon(Icons.insert_drive_file, size: 32),
                         title: Text(a.name),
                         onTap: () => OpenFile.open(a.url),
                       );
