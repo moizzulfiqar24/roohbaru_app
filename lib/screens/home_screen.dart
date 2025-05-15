@@ -108,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16.0,
-                      // vertical: 2.0,
                     ),
                     child: SingleChildScrollView(
                       child: Column(
@@ -132,12 +131,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   size: 30,
                                   color: Colors.black,
                                 ),
-                                onPressed: () {/* later */},
+                                onPressed: () {
+                                  context
+                                      .read<AuthBloc>()
+                                      .add(SignOutRequested());
+                                },
                               ),
                             ],
                           ),
 
-                          // const SizedBox(height: 8),
                           Center(
                             child: Column(
                               children: [
@@ -198,7 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                             fontFamily: 'lufga-regular',
                                             fontSize: 18,
                                             color: Colors.black54,
-                                            // fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                         Icon(
@@ -249,6 +250,29 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             );
           },
+        ),
+        bottomNavigationBar: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+          ),
+          child: Container(
+            height: 56,
+            // color: Colors.black.withOpacity(0.7),
+            color: Colors.black,
+            child: Center(
+              child: IconButton(
+                iconSize: 32,
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NewEntryScreen(userId: widget.user.uid),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
