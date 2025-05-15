@@ -225,8 +225,6 @@ class DeleteEntry extends JournalEvent {
 ]
 
 roohbaru_app/lib/blocs/journal_bloc.dart: [
-// lib/blocs/journal_bloc.dart
-
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
@@ -252,16 +250,14 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       LoadEntries event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
     try {
-      // build a stream of List<JournalEntry> from your query
       final stream = _firestore
           .collection('entries')
           .where('userId', isEqualTo: event.userId)
           .orderBy('timestamp', descending: true)
           .snapshots()
           .map((snap) =>
-              snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList());
+              snap.docs.map((doc) => JournalEntry.fromFirestore(doc)).toList());
 
-      // await emit.forEach keeps the handler alive and routes every new snapshot
       await emit.forEach<List<JournalEntry>>(
         stream,
         onData: (entries) => JournalLoaded(entries),
@@ -274,19 +270,18 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
   }
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
-    // no emit(JournalLoading()) here—UI is already showing snapshot state
     try {
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
-      final enriched = event.entry.copyWith(
+      final enrichedEntry = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
-        suggestions: aiResult.suggestions,
+        suggestions: [aiResult.song, aiResult.movie],
       );
+
       await _firestore
           .collection('entries')
-          .doc(enriched.id)
-          .set(enriched.toMap());
-      // ❌ no local emit—your snapshot handler will fire and emit the new list
+          .doc(enrichedEntry.id)
+          .set(enrichedEntry.toMap());
     } catch (e, st) {
       log('AddEntry error: $e\n$st');
       emit(JournalError('Failed to add entry: ${e.toString()}'));
@@ -298,16 +293,16 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
     emit(JournalLoading());
     try {
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
-      final enriched = event.entry.copyWith(
+      final updatedEntry = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
-        suggestions: aiResult.suggestions,
+        suggestions: [aiResult.song, aiResult.movie],
       );
+
       await _firestore
           .collection('entries')
-          .doc(enriched.id)
-          .update(enriched.toMap());
-      // snapshot will pick up the change and re-emit
+          .doc(updatedEntry.id)
+          .update(updatedEntry.toMap());
     } catch (e, st) {
       log('UpdateEntry error: $e\n$st');
       emit(JournalError('Failed to update entry: ${e.toString()}'));
@@ -318,7 +313,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       DeleteEntry event, Emitter<JournalState> emit) async {
     try {
       await _firestore.collection('entries').doc(event.entryId).delete();
-      // snapshot will re-emit remaining entries
     } catch (e, st) {
       log('DeleteEntry error: $e\n$st');
       emit(JournalError('Failed to delete entry: ${e.toString()}'));
@@ -1713,6 +1707,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'good evening';
   }
 
+  /// Truncate to [limit] words, adding "..." if exceeded.
+  String _truncateWords(String text, int limit) {
+    final words = text.split(RegExp(r'\s+'));
+    if (words.length <= limit) return text;
+    return words.take(limit).join(' ') + '...';
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -1751,9 +1752,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1876,7 +1875,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             },
                           ),
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 6),
 
                           // journal entries
                           if (journalState is JournalLoading)
@@ -1896,29 +1895,28 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-        bottomNavigationBar: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-          ),
-          child: Container(
-            height: 56,
-            // color: Colors.black.withOpacity(0.7),
-            color: Colors.black,
-            child: Center(
-              child: IconButton(
-                iconSize: 32,
-                icon: const Icon(Icons.add, color: Colors.white),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NewEntryScreen(userId: widget.user.uid),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // bottomNavigationBar: ClipRRect(
+        //   borderRadius: const BorderRadius.only(
+        //     topLeft: Radius.circular(12),
+        //     topRight: Radius.circular(12),
+        //   ),
+        //   child: Container(
+        //     height: 56,
+        //     color: Colors.black,
+        //     child: Center(
+        //       child: IconButton(
+        //         iconSize: 32,
+        //         icon: const Icon(Icons.add, color: Colors.white),
+        //         onPressed: () => Navigator.push(
+        //           context,
+        //           MaterialPageRoute(
+        //             builder: (_) => NewEntryScreen(userId: widget.user.uid),
+        //           ),
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ),
     );
   }
@@ -1939,12 +1937,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
       sections.add(
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10),
           child: Row(
             children: [
-              Text(label,
+              Text(label.toLowerCase(),
                   style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+                    fontSize: 20,
+                    // fontWeight: FontWeight.bold,
+                    fontFamily: 'lufga-bold',
+                    color: Color(0xFF473623),
+                  )),
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.push(
@@ -1978,7 +1980,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final dow = DateFormat('EEE').format(e.timestamp).toLowerCase();
     final dayNum = DateFormat('d').format(e.timestamp);
 
-    // only keep images whose file actually exists
+    // only keep images whose files exist
     final imgs = e.attachments
         .where((a) => a.type == 'image' && File(a.url).existsSync())
         .map((a) => a.url)
@@ -1989,88 +1991,97 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
       ),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                // date box
-                Container(
-                  width: 50,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(8),
+            // date pill
+            Container(
+              width: 55,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    dow,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontFamily: 'lufga-semi-bold',
+                      color: Color(0xFF473623),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      Text(dow,
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 4),
-                      Text(dayNum,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                    ],
+                  const SizedBox(height: 4),
+                  Text(
+                    dayNum,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontFamily: 'lufga-regular',
+                      color: Colors.black,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                // text content
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(e.title,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 6),
-                      Text(e.content,
-                          maxLines: 3, overflow: TextOverflow.ellipsis),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
 
-            // images row
-            if (imgs.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 80,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: imgs.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) {
-                    final file = File(imgs[i]);
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        file,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (ctx, err, st) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.broken_image,
-                              size: 40, color: Colors.white),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+            const SizedBox(width: 12),
+
+            // content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // title
+                  Text(
+                    e.title.toLowerCase(),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontFamily: 'lufga-semi-bold-italic',
+                      color: Color(0xFF473623),
+                    ),
+                  ),
+                  // const SizedBox(height: 2),
+                  // truncated content
+                  Text(
+                    _truncateWords(e.content, 30).toLowerCase(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.4,
+                      // fontFamily: 'lufga-light',
+                      fontFamily: 'lufga-regular',
+                    ),
+                  ),
+                  if (imgs.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: imgs.take(2).map((path) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(path),
+                                height: 120,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, err, stack) => Container(
+                                  height: 120,
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -2340,13 +2351,17 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 class AIResult {
   final String sentiment;
   final String mood;
-  final List<String> suggestions;
+  final String song;
+  final String movie;
 
   AIResult({
     required this.sentiment,
     required this.mood,
-    required this.suggestions,
+    required this.song,
+    required this.movie,
   });
+
+  List<String> get suggestions => [song, movie];
 }
 
 class AIService {
@@ -2364,14 +2379,16 @@ class AIService {
       {
         'role': 'system',
         'content': '''
-You are a helpful assistant. Analyze the following journal entry and:
-1) Determine overall sentiment (Positive, Negative, or Neutral).
-2) Pick exactly one mood from this list: Happy, Excited, Calm, Grateful, Loving, Confident, Sad, Angry, Anxious, Lonely, Guilty, Jealous, Confused, Surprised, Bored, Restless, Inspired, Distracted.
-3) Return three suggestions (music, quote, and meditation) suitable for the mood.
+You are a helpful assistant. Analyze the following journal entry and return JSON with:
+- "sentiment": Positive, Negative, or Neutral
+- "mood": one of: Happy, Excited, Calm, Grateful, Loving, Confident, Sad, Angry, Anxious, Lonely, Guilty, Jealous, Confused, Surprised, Bored, Restless, Inspired, Distracted
+- "song": one song recommendation for the mood
+- "movie": one movie recommendation for the mood
 
-Return only a strict JSON object using double quotes for all keys and values, like:
-{"sentiment": "...", "mood": "...", "suggestions": ["...", "...", "..."]}
-Do not include any commentary or explanation.
+Example:
+{"sentiment": "Positive", "mood": "Calm", "song": "Weightless by Marconi Union", "movie": "The Secret Life of Walter Mitty"}
+
+Only return strict JSON. No commentary or explanations.
 '''
       },
       {
@@ -2383,10 +2400,10 @@ Do not include any commentary or explanation.
     final body = {
       'model': _model,
       'messages': messages,
-      'temperature': 0.2,
+      'temperature': 0.3,
     };
 
-    final resp = await http.post(
+    final response = await http.post(
       Uri.parse(_endpoint),
       headers: {
         'Content-Type': 'application/json',
@@ -2395,98 +2412,42 @@ Do not include any commentary or explanation.
       body: jsonEncode(body),
     );
 
-    if (resp.statusCode != 200) {
-      throw Exception('Groq API error ${resp.statusCode}: ${resp.body}');
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Groq API error ${response.statusCode}: ${response.body}');
     }
 
-    final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
-    final raw =
-        (decoded['choices'] as List).first['message']['content'] as String;
+    final decoded = jsonDecode(response.body);
+    final rawContent = decoded['choices'][0]['message']['content'];
 
-    final start = raw.indexOf('{');
-    if (start < 0) {
-      throw FormatException('Couldn’t find JSON start in Groq response: $raw');
-    }
-
-    int end = raw.lastIndexOf('}');
-    if (end < 0) {
-      final arrayEnd = raw.lastIndexOf(']');
-      if (arrayEnd < 0 || arrayEnd <= start) {
-        throw FormatException('Couldn’t find JSON end in Groq response: $raw');
-      }
-      final jsonText = raw.substring(start, arrayEnd + 1) + '}';
-      return _parseJson(_sanitizeJsonLikeText(jsonText), raw);
-    }
-
-    final jsonText = raw.substring(start, end + 1);
-    return _parseJson(_sanitizeJsonLikeText(jsonText), raw);
-  }
-
-  AIResult _parseJson(String jsonText, String raw) {
     try {
-      final map = jsonDecode(jsonText) as Map<String, dynamic>;
+      final jsonText = _extractJson(rawContent);
+      final data = jsonDecode(jsonText);
+
       return AIResult(
-        sentiment: map['sentiment'] as String,
-        mood: map['mood'] as String,
-        suggestions: List<String>.from(map['suggestions'] as List),
+        sentiment: data['sentiment'] ?? 'Neutral',
+        mood: data['mood'] ?? 'Calm',
+        song: data['song'] ?? 'No suggestion',
+        movie: data['movie'] ?? 'No suggestion',
       );
     } catch (e) {
-      throw FormatException(
-          'Invalid JSON from Groq:\n$jsonText\n\nraw was:\n$raw');
+      print('⚠️ Failed to parse JSON:\n$rawContent\n\nError: $e');
+      return AIResult(
+        sentiment: 'Neutral',
+        mood: 'Calm',
+        song: 'Weightless by Marconi Union',
+        movie: 'The Secret Life of Walter Mitty',
+      );
     }
   }
 
-  // 🛠 Fix common formatting issues like unquoted values or extra notes
-  String _sanitizeJsonLikeText(String input) {
-    String cleaned = input;
-
-    // Fix encoding issues like smart quotes or UTF-8 junk
-    cleaned = cleaned
-        .replaceAll('â', '"')
-        .replaceAll('â', '"')
-        .replaceAll('“', '"')
-        .replaceAll('”', '"')
-        .replaceAll('‘', "'")
-        .replaceAll('’', "'");
-
-    // Ensure all keys have double quotes
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\w+)\s*:'),
-      (match) => '"${match[1]}":',
-    );
-
-    // Rebuild suggestions array if broken
-    final suggestionsPattern =
-        RegExp(r'"suggestions"\s*:\s*\[(.*?)\]', dotAll: true);
-    final match = suggestionsPattern.firstMatch(cleaned);
-    if (match != null) {
-      final rawSuggestions = match.group(1)!;
-
-      // Split suggestions on comma, but avoid splitting inside quotes
-      final parts = rawSuggestions.split(RegExp(r',(?![^"]*"\s*,\s*[^"]*")'));
-
-      final fixedSuggestions = parts.map((s) {
-        // Clean outer and inner quotes
-        String fixed = s.trim();
-
-        // Remove leading/trailing quotes
-        if (fixed.startsWith('"')) fixed = fixed.substring(1);
-        if (fixed.endsWith('"')) fixed = fixed.substring(0, fixed.length - 1);
-
-        // Escape quotes inside string
-        fixed = fixed.replaceAll('"', r'\"');
-
-        return '"$fixed"';
-      }).join(', ');
-
-      cleaned = cleaned.replaceRange(
-        match.start,
-        match.end,
-        '"suggestions": [$fixedSuggestions]',
-      );
+  String _extractJson(String raw) {
+    final start = raw.indexOf('{');
+    final end = raw.lastIndexOf('}');
+    if (start < 0 || end <= start) {
+      throw FormatException('No valid JSON object found.');
     }
-
-    return cleaned;
+    return raw.substring(start, end + 1);
   }
 }
 

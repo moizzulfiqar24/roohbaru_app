@@ -1,5 +1,3 @@
-// lib/blocs/journal_bloc.dart
-
 import 'dart:developer';
 
 import 'package:bloc/bloc.dart';
@@ -25,16 +23,14 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       LoadEntries event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
     try {
-      // build a stream of List<JournalEntry> from your query
       final stream = _firestore
           .collection('entries')
           .where('userId', isEqualTo: event.userId)
           .orderBy('timestamp', descending: true)
           .snapshots()
           .map((snap) =>
-              snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList());
+              snap.docs.map((doc) => JournalEntry.fromFirestore(doc)).toList());
 
-      // await emit.forEach keeps the handler alive and routes every new snapshot
       await emit.forEach<List<JournalEntry>>(
         stream,
         onData: (entries) => JournalLoaded(entries),
@@ -47,19 +43,18 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
   }
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
-    // no emit(JournalLoading()) here—UI is already showing snapshot state
     try {
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
-      final enriched = event.entry.copyWith(
+      final enrichedEntry = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
-        suggestions: aiResult.suggestions,
+        suggestions: [aiResult.song, aiResult.movie],
       );
+
       await _firestore
           .collection('entries')
-          .doc(enriched.id)
-          .set(enriched.toMap());
-      // ❌ no local emit—your snapshot handler will fire and emit the new list
+          .doc(enrichedEntry.id)
+          .set(enrichedEntry.toMap());
     } catch (e, st) {
       log('AddEntry error: $e\n$st');
       emit(JournalError('Failed to add entry: ${e.toString()}'));
@@ -70,17 +65,34 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       UpdateEntry event, Emitter<JournalState> emit) async {
     emit(JournalLoading());
     try {
-      final aiResult = await _aiService.analyzeEntry(event.entry.content);
-      final enriched = event.entry.copyWith(
-        sentiment: aiResult.sentiment,
-        mood: aiResult.mood,
-        suggestions: aiResult.suggestions,
-      );
+      final existingDoc =
+          await _firestore.collection('entries').doc(event.entry.id).get();
+
+      if (!existingDoc.exists) {
+        emit(JournalError('Entry not found for update.'));
+        return;
+      }
+
+      final previous = JournalEntry.fromFirestore(existingDoc);
+
+      // Only call AI if content changed
+      JournalEntry updatedEntry;
+      if (event.entry.content.trim() != previous.content.trim()) {
+        final aiResult = await _aiService.analyzeEntry(event.entry.content);
+        updatedEntry = event.entry.copyWith(
+          sentiment: aiResult.sentiment,
+          mood: aiResult.mood,
+          suggestions: [aiResult.song, aiResult.movie],
+        );
+      } else {
+        // Just a local edit (e.g., user changed mood or attachments)
+        updatedEntry = event.entry;
+      }
+
       await _firestore
           .collection('entries')
-          .doc(enriched.id)
-          .update(enriched.toMap());
-      // snapshot will pick up the change and re-emit
+          .doc(updatedEntry.id)
+          .update(updatedEntry.toMap());
     } catch (e, st) {
       log('UpdateEntry error: $e\n$st');
       emit(JournalError('Failed to update entry: ${e.toString()}'));
@@ -91,7 +103,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       DeleteEntry event, Emitter<JournalState> emit) async {
     try {
       await _firestore.collection('entries').doc(event.entryId).delete();
-      // snapshot will re-emit remaining entries
     } catch (e, st) {
       log('DeleteEntry error: $e\n$st');
       emit(JournalError('Failed to delete entry: ${e.toString()}'));

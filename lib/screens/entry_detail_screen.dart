@@ -167,7 +167,9 @@ class EntryDetailScreen extends StatelessWidget {
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500)),
                       DropdownButton<String>(
-                        value: entry.mood.isNotEmpty ? entry.mood : null,
+                        value: moodOptions.contains(entry.mood)
+                            ? entry.mood
+                            : null,
                         hint: const Text('Select Mood'),
                         items: moodOptions
                             .map((m) =>
