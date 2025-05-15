@@ -60,3 +60,9 @@ flutter:
     - family: lufga-semi-bold
       fonts:
         - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-semibold.otf
+    - family: lufga-semi-bold-italic
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-semibolditalic.otf
+    - family: lufga-extra-light
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-extralight.otf

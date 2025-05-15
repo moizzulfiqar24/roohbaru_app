@@ -68,6 +68,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'good evening';
   }
 
+  /// Truncate to [limit] words, adding "..." if exceeded.
+  String _truncateWords(String text, int limit) {
+    final words = text.split(RegExp(r'\s+'));
+    if (words.length <= limit) return text;
+    return words.take(limit).join(' ') + '...';
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
@@ -106,9 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,28 +256,28 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-        bottomNavigationBar: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-          ),
-          child: Container(
-            height: 56,
-            color: Colors.black,
-            child: Center(
-              child: IconButton(
-                iconSize: 32,
-                icon: const Icon(Icons.add, color: Colors.white),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NewEntryScreen(userId: widget.user.uid),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // bottomNavigationBar: ClipRRect(
+        //   borderRadius: const BorderRadius.only(
+        //     topLeft: Radius.circular(12),
+        //     topRight: Radius.circular(12),
+        //   ),
+        //   child: Container(
+        //     height: 56,
+        //     color: Colors.black,
+        //     child: Center(
+        //       child: IconButton(
+        //         iconSize: 32,
+        //         icon: const Icon(Icons.add, color: Colors.white),
+        //         onPressed: () => Navigator.push(
+        //           context,
+        //           MaterialPageRoute(
+        //             builder: (_) => NewEntryScreen(userId: widget.user.uid),
+        //           ),
+        //         ),
+        //       ),
+        //     ),
+        //   ),
+        // ),
       ),
     );
   }
@@ -293,12 +298,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
       sections.add(
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10),
           child: Row(
             children: [
-              Text(label,
+              Text(label.toLowerCase(),
                   style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+                    fontSize: 20,
+                    // fontWeight: FontWeight.bold,
+                    fontFamily: 'lufga-bold',
+                    color: Color(0xFF473623),
+                  )),
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.push(
@@ -344,16 +353,16 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // date pill
             Container(
-              width: 50,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              width: 55,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
+                color: Colors.white.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -361,15 +370,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     dow,
                     style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600),
+                      fontSize: 16,
+                      fontFamily: 'lufga-semi-bold',
+                      color: Color(0xFF473623),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     dayNum,
                     style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontFamily: 'lufga-regular',
+                      color: Colors.black,
+                    ),
                   ),
                 ],
               ),
@@ -382,38 +395,25 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // title + edit icon
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          e.title,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade800,
-                          ),
-                        ),
-                      ),
-                      InkWell(
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => EntryDetailScreen(entryId: e.id),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.edit,
-                          size: 20,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                  // title
                   Text(
-                    e.content,
-                    style: const TextStyle(fontSize: 16, height: 1.4),
+                    e.title.toLowerCase(),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontFamily: 'lufga-semi-bold-italic',
+                      color: Color(0xFF473623),
+                    ),
+                  ),
+                  // const SizedBox(height: 2),
+                  // truncated content
+                  Text(
+                    _truncateWords(e.content, 30).toLowerCase(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.4,
+                      // fontFamily: 'lufga-light',
+                      fontFamily: 'lufga-regular',
+                    ),
                   ),
                   if (imgs.isNotEmpty) ...[
                     const SizedBox(height: 12),

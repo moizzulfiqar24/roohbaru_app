@@ -90,14 +90,33 @@ Do not include any commentary or explanation.
   AIResult _parseJson(String jsonText, String raw) {
     try {
       final map = jsonDecode(jsonText) as Map<String, dynamic>;
+
+      final sentiment = map['sentiment']?.toString() ?? 'Neutral';
+      final mood = map['mood']?.toString() ?? 'Calm';
+      final suggestions = (map['suggestions'] as List?)
+              ?.map((s) => s.toString())
+              .toList() ??
+          ['Take a deep breath', 'Stay present', 'Try a 5-minute meditation'];
+
       return AIResult(
-        sentiment: map['sentiment'] as String,
-        mood: map['mood'] as String,
-        suggestions: List<String>.from(map['suggestions'] as List),
+        sentiment: sentiment,
+        mood: mood,
+        suggestions: suggestions,
       );
     } catch (e) {
-      throw FormatException(
-          'Invalid JSON from Groq:\n$jsonText\n\nraw was:\n$raw');
+      // Log the issue and fall back to default safe values
+      print(
+          '⚠️ Failed to parse JSON:\n$jsonText\n\nraw was:\n$raw\n\nError: $e');
+
+      return AIResult(
+        sentiment: 'Neutral',
+        mood: 'Calm',
+        suggestions: [
+          'Take a walk in nature',
+          'Reflect with a journal prompt',
+          'Do a short breathing exercise',
+        ],
+      );
     }
   }
 
@@ -105,42 +124,60 @@ Do not include any commentary or explanation.
   String _sanitizeJsonLikeText(String input) {
     String cleaned = input;
 
-    // Fix encoding issues like smart quotes or UTF-8 junk
+    // Replace smart quotes and weird characters
     cleaned = cleaned
-        .replaceAll('â', '"')
-        .replaceAll('â', '"')
         .replaceAll('“', '"')
         .replaceAll('”', '"')
         .replaceAll('‘', "'")
-        .replaceAll('’', "'");
+        .replaceAll('’', "'")
+        .replaceAll('â', '"')
+        .replaceAll('â', '"');
 
-    // Ensure all keys have double quotes
+    // Remove all non-JSON content before first { and after last }
+    final start = cleaned.indexOf('{');
+    final end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      cleaned = cleaned.substring(start, end + 1);
+    }
+
+    // Ensure keys are wrapped in double quotes
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(\w+)\s*:'),
       (match) => '"${match[1]}":',
     );
 
-    // Rebuild suggestions array if broken
+    // Fix suggestions array (even if broken or unquoted)
     final suggestionsPattern =
         RegExp(r'"suggestions"\s*:\s*\[(.*?)\]', dotAll: true);
     final match = suggestionsPattern.firstMatch(cleaned);
+
     if (match != null) {
       final rawSuggestions = match.group(1)!;
+      final parts = <String>[];
+      final buffer = StringBuffer();
+      bool insideQuotes = false;
 
-      // Split suggestions on comma, but avoid splitting inside quotes
-      final parts = rawSuggestions.split(RegExp(r',(?![^"]*"\s*,\s*[^"]*")'));
+      for (int i = 0; i < rawSuggestions.length; i++) {
+        final char = rawSuggestions[i];
+        if (char == '"' && (i == 0 || rawSuggestions[i - 1] != '\\')) {
+          insideQuotes = !insideQuotes;
+        }
+        if (char == ',' && !insideQuotes) {
+          parts.add(buffer.toString().trim());
+          buffer.clear();
+        } else {
+          buffer.write(char);
+        }
+      }
+      if (buffer.isNotEmpty) parts.add(buffer.toString().trim());
 
       final fixedSuggestions = parts.map((s) {
-        // Clean outer and inner quotes
         String fixed = s.trim();
 
-        // Remove leading/trailing quotes
         if (fixed.startsWith('"')) fixed = fixed.substring(1);
         if (fixed.endsWith('"')) fixed = fixed.substring(0, fixed.length - 1);
 
-        // Escape quotes inside string
-        fixed = fixed.replaceAll('"', r'\"');
-
+        fixed = fixed.replaceAll(r'"', r'\"');
         return '"$fixed"';
       }).join(', ');
 
