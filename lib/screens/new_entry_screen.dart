@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:uuid/uuid.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
+import 'package:flutter_svg/flutter_svg.dart'; // ✅ For SVG support
 
 import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
@@ -224,11 +225,23 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              navbarNewEntry(
-                icon: PhosphorIcons.pen,
-                active: _isEditing,
-                onTap: _toggleEditing,
-              ),
+              _isEditing
+                  ? navbarNewEntry(
+                      icon: PhosphorIcons.pencilSimple,
+                      active: true,
+                      onTap: _toggleEditing,
+                    )
+                  : navbarNewEntry(
+                      iconWidget: SvgPicture.asset(
+                        'assets/icons/pencil-simple-slash.svg',
+                        width: 30,
+                        height: 30,
+                        colorFilter: const ColorFilter.mode(
+                            Colors.black54, BlendMode.srcIn),
+                      ),
+                      active: false,
+                      onTap: _toggleEditing,
+                    ),
               navbarNewEntry(
                 icon: PhosphorIcons.image,
                 active: false,
