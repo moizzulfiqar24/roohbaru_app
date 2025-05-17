@@ -32,7 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
   int _selectedIndex = 0;
 
-  static const _defaultBg = Color(0xFFFFFAF7);
+  // static const _defaultBg = Color(0xFFFFFAF7);
+  static const _defaultBg = Color(0xFFf8eed5);
 
   static const Map<String, Color> _moodBgColor = {
     'Happy': Color(0xFFAADAF0),

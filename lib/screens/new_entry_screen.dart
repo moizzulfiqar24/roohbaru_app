@@ -158,13 +158,17 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     ),
                     decoration: InputDecoration(
                       hintText: 'Give it a title...',
-                      hintStyle:
-                          TextStyle(color: Colors.grey.shade600, fontSize: 32),
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontFamily: 'lufga-semi-bold',
+                        fontSize: 32,
+                      ),
                       border: InputBorder.none,
                       errorText: _showTitleError ? 'Title is required' : null,
                     ),
                   ),
                 ),
+                const SizedBox(height: 2),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -175,6 +179,10 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                       expands: true,
                       decoration: const InputDecoration(
                         hintText: 'Write your thoughts...',
+                        hintStyle: TextStyle(
+                          fontFamily: 'lufga-regular',
+                          fontSize: 18,
+                        ),
                         border: InputBorder.none,
                       ),
                     ),
@@ -208,7 +216,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
         ],
       ),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(85, 0, 80, 45),
+        padding: const EdgeInsets.fromLTRB(85, 0, 85, 45),
         child: Container(
           height: 80,
           decoration: BoxDecoration(
