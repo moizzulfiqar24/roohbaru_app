@@ -1,26 +1,38 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Attachment {
   final String url;
   final String name;
   final String type; // e.g., 'image', 'pdf', 'doc'
+  final String? base64Data; // new: holds the image’s Base64 if present
 
-  Attachment({required this.url, required this.name, required this.type});
+  Attachment({
+    required this.url,
+    required this.name,
+    required this.type,
+    this.base64Data,
+  });
 
   factory Attachment.fromMap(Map<String, dynamic> map) {
     return Attachment(
       url: map['url'] as String,
       name: map['name'] as String,
       type: map['type'] as String,
+      base64Data: map['data'] as String?, // read back if stored
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {
+    final m = <String, dynamic>{
       'url': url,
       'name': name,
       'type': type,
     };
+    if (base64Data != null) {
+      m['data'] = base64Data; // only include if we have it
+    }
+    return m;
   }
 }
 
