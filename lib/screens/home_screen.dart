@@ -16,6 +16,9 @@ import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
 import '../widgets/navbar.dart';
+import '../widgets/header_row.dart';
+import '../widgets/greeting_section.dart';
+import '../widgets/quote_section.dart';
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
 import 'entry_detail_screen.dart';
@@ -132,120 +135,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.calendar_month_rounded,
-                                  size: 30,
-                                  color: Colors.black,
-                                ),
-                                onPressed: () {},
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.logout,
-                                  size: 25,
-                                  color: Colors.black,
-                                ),
-                                onPressed: () {
-                                  context
-                                      .read<AuthBloc>()
-                                      .add(SignOutRequested());
-                                },
-                              ),
-                            ],
-                          ),
-                          Center(
-                            child: Column(
-                              children: [
-                                Text(
-                                  _greeting,
-                                  style: const TextStyle(
-                                    fontFamily: 'lufga-bold',
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'reflect, grow, thrive',
-                                  style: TextStyle(
-                                    fontFamily: 'lufga-regular',
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          FutureBuilder<Quote>(
-                            future: _quoteFuture,
-                            builder: (c, snap) {
-                              if (snap.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-                              if (snap.hasError) {
-                                return Text(
-                                  'Error loading quote',
-                                  style: TextStyle(color: Colors.red),
-                                );
-                              }
-                              final q = snap.data!;
-                              return Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.5),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: const [
-                                        Text(
-                                          "today’s quote",
-                                          style: TextStyle(
-                                            fontFamily: 'lufga-regular',
-                                            fontSize: 18,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.format_quote_rounded,
-                                          size: 40,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      q.text.toLowerCase(),
-                                      style: const TextStyle(
-                                        fontFamily: 'lufga-light-italic',
-                                        fontSize: 20,
-                                        color: Color(0xFF473623),
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      '- ${q.author}',
-                                      style: const TextStyle(
-                                        fontFamily: 'lufga-semi-bold',
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
+                          HeaderRow(
+                            onCalendarPressed: () {},
+                            onLogoutPressed: () {
+                              context.read<AuthBloc>().add(SignOutRequested());
                             },
                           ),
+                          GreetingSection(greeting: _greeting),
+                          const SizedBox(height: 24),
+                          QuoteSection(quoteFuture: _quoteFuture),
                           const SizedBox(height: 6),
                           if (journalState is JournalLoading)
                             const Center(child: CircularProgressIndicator())
