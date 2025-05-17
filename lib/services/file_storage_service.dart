@@ -1,14 +1,26 @@
+// lib/services/file_storage_service.dart
+
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart';
 
 class FileStorageService {
-  Future<File> saveFileLocally(File sourceFile, String fileName) async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final savedFile = File('${appDir.path}/attachments/$fileName');
+  /// Saves ONLY image files under /attachments/images in app storage.
+  /// Throws if file is not an allowed image format.
+  Future<File> saveImageLocally(File sourceFile) async {
+    final ext = path.extension(sourceFile.path).toLowerCase();
+    if (!['.jpg', '.jpeg', '.png', '.gif'].contains(ext)) {
+      throw Exception('Unsupported image format: $ext');
+    }
 
-    // Ensure attachments folder exists
-    await savedFile.parent.create(recursive: true);
-    return sourceFile.copy(savedFile.path);
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory('${appDir.path}/attachments/images');
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+
+    final fileName = path.basename(sourceFile.path);
+    final savedPath = path.join(imagesDir.path, fileName);
+    return sourceFile.copy(savedPath);
   }
 }

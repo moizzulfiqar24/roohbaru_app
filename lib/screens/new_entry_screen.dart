@@ -1,21 +1,21 @@
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:uuid/uuid.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
 
 import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
 import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/primary_button.dart';
 import 'entry_detail_screen.dart';
 
 class NewEntryScreen extends StatefulWidget {
   final String userId;
-  const NewEntryScreen({super.key, required this.userId});
+  const NewEntryScreen({Key? key, required this.userId}) : super(key: key);
 
   @override
   State<NewEntryScreen> createState() => _NewEntryScreenState();
@@ -24,9 +24,12 @@ class NewEntryScreen extends StatefulWidget {
 class _NewEntryScreenState extends State<NewEntryScreen> {
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _contentCtrl = TextEditingController();
-
   final List<Attachment> _attachments = [];
   final FileStorageService _fileService = FileStorageService();
+  final ImagePicker _picker = ImagePicker();
+
+  bool _isEditing = false;
+  bool _isMicActive = false;
   bool _showTitleError = false;
 
   @override
@@ -36,35 +39,38 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
     super.dispose();
   }
 
-  Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withReadStream: false,
-    );
+  void _toggleEditing() {
+    setState(() {
+      _isEditing = !_isEditing;
+    });
+  }
 
-    if (result != null && result.files.isNotEmpty) {
-      for (final file in result.files) {
-        if (file.path == null) continue;
+  void _toggleMic() {
+    setState(() {
+      _isMicActive = !_isMicActive;
+    });
+  }
 
-        final sourceFile = File(file.path!);
-        final savedFile =
-            await _fileService.saveFileLocally(sourceFile, file.name);
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile>? picked =
+          await _picker.pickMultiImage(imageQuality: 80);
+      if (picked == null) return;
 
-        final ext = file.extension?.toLowerCase() ?? '';
-        String type = 'file';
-        if (['jpg', 'jpeg', 'png', 'gif'].contains(ext)) {
-          type = 'image';
-        } else if (ext == 'pdf') {
-          type = 'pdf';
-        }
-
-        _attachments.add(Attachment(
-          url: savedFile.path,
-          name: file.name,
-          type: type,
-        ));
+      for (var xfile in picked) {
+        final saved = await _fileService.saveImageLocally(File(xfile.path));
+        setState(() {
+          _attachments.add(
+            Attachment(
+              url: saved.path,
+              name: xfile.name,
+              type: 'image',
+            ),
+          );
+        });
       }
-      setState(() {});
+    } catch (e) {
+      debugPrint('Image pick error: $e');
     }
   }
 
@@ -86,69 +92,154 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       attachments: _attachments,
     );
 
-    // 1) Dispatch the AddEntry so it actually lands in Firestore & BLoC
     context.read<JournalBloc>().add(AddEntry(entry));
-
-    // 2) Then navigate to detail—once the BLoC writes it, your snapshot/listener
-    //    or optimistic update will include it and EntryDetailScreen will find it.
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => EntryDetailScreen(entryId: entry.id),
-      ),
-    );
-  }
-
-  Widget _buildAttachmentPreview() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: _attachments.map((a) {
-        final isImage = a.type == 'image';
-        return ListTile(
-          leading: isImage
-              ? Image.file(File(a.url),
-                  width: 40, height: 40, fit: BoxFit.cover)
-              : const Icon(Icons.insert_drive_file, size: 32),
-          title: Text(a.name),
-        );
-      }).toList(),
+      MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: entry.id)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Entry')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              CustomTextField(
-                label: 'Title',
-                hint: 'Give it a title...',
-                controller: _titleCtrl,
-                errorText: _showTitleError ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 16),
-              CustomTextField(
-                label: 'Content',
-                hint: 'Write your thoughts...',
-                controller: _contentCtrl,
-              ),
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _pickFiles,
-                  icon: const Icon(Icons.attach_file),
-                  label: const Text('Add Attachment'),
+      backgroundColor: const Color(0xFFf8eed5),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/bg2.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: const Icon(
+                          Icons.arrow_back,
+                          size: 28,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _submitEntry,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF473623),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    controller: _titleCtrl,
+                    readOnly: !_isEditing,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Give it a title...',
+                      hintStyle:
+                          TextStyle(color: Colors.grey.shade600, fontSize: 32),
+                      border: InputBorder.none,
+                      errorText: _showTitleError ? 'Title is required' : null,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: TextField(
+                      controller: _contentCtrl,
+                      readOnly: !_isEditing,
+                      maxLines: null,
+                      expands: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Write your thoughts...',
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_attachments.isNotEmpty)
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _attachments.length,
+                      itemBuilder: (ctx, i) {
+                        final a = _attachments[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Image.file(
+                            File(a.url),
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(85, 0, 80, 45),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(50),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.07),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              if (_attachments.isNotEmpty) _buildAttachmentPreview(),
-              const SizedBox(height: 24),
-              PrimaryButton(
-                label: 'Save Entry',
-                onPressed: _submitEntry,
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              navbarNewEntry(
+                icon: PhosphorIcons.pen,
+                active: _isEditing,
+                onTap: _toggleEditing,
+              ),
+              navbarNewEntry(
+                icon: PhosphorIcons.image,
+                active: false,
+                onTap: _pickImages,
+              ),
+              navbarNewEntry(
+                icon: _isMicActive
+                    ? PhosphorIcons.microphone
+                    : PhosphorIcons.microphoneSlash,
+                active: _isMicActive,
+                onTap: _toggleMic,
               ),
             ],
           ),

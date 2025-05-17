@@ -20,13 +20,14 @@ dependencies:
   logger: ^2.5.0
   uuid: ^4.5.1
   video_player: ^2.9.5
-  file_picker: ^10.1.7
   path: ^1.9.0
   path_provider: ^2.1.2
   open_file: ^3.5.10
   flutter_dotenv: ^5.2.1
   intl: ^0.20.2
-  rive: ^0.12.3
+  image_picker: ^1.1.2
+  material_symbols_icons: ^4.0.0
+  phosphor_flutter: ^1.0.0
 
 dev_dependencies:
   flutter_test:
@@ -41,13 +42,6 @@ flutter:
     - assets/images/
     - assets/videos/
     - assets/fonts/
-    - assets/rive/house.riv
-    - assets/rive/button.riv
-    - assets/rive/check.riv
-    - assets/rive/confetti.riv
-    - assets/rive/icons.riv
-    - assets/rive/menu_button.riv
-    - assets/rive/shapes.riv
 
   
   fonts:

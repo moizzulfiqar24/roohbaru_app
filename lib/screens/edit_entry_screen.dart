@@ -1,8 +1,10 @@
+// lib/screens/edit_entry_screen.dart
+
 import 'dart:io';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:open_file/open_file.dart';
 
 import '../blocs/journal_bloc.dart';
@@ -14,7 +16,7 @@ import '../widgets/primary_button.dart';
 
 class EditEntryScreen extends StatefulWidget {
   final JournalEntry entry;
-  const EditEntryScreen({super.key, required this.entry});
+  const EditEntryScreen({Key? key, required this.entry}) : super(key: key);
 
   @override
   State<EditEntryScreen> createState() => _EditEntryScreenState();
@@ -25,7 +27,8 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
   late final TextEditingController _contentCtrl;
 
   final FileStorageService _fileService = FileStorageService();
-  final List<Attachment> _attachments = [];
+  final ImagePicker _picker = ImagePicker();
+  late List<Attachment> _attachments;
   bool _showTitleError = false;
 
   @override
@@ -33,7 +36,7 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
     super.initState();
     _titleCtrl = TextEditingController(text: widget.entry.title);
     _contentCtrl = TextEditingController(text: widget.entry.content);
-    _attachments.addAll(widget.entry.attachments);
+    _attachments = List.from(widget.entry.attachments);
   }
 
   @override
@@ -43,38 +46,32 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
     super.dispose();
   }
 
-  Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      withReadStream: false,
-    );
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile>? picked = await _picker.pickMultiImage(
+        imageQuality: 80,
+      );
+      if (picked == null) return;
 
-    if (result != null && result.files.isNotEmpty) {
-      for (final file in result.files) {
-        if (file.path == null) continue;
-
-        final sourceFile = File(file.path!);
-        final savedFile =
-            await _fileService.saveFileLocally(sourceFile, file.name);
-
-        final ext = file.extension?.toLowerCase() ?? '';
-        String type = 'file';
-        if (['jpg', 'jpeg', 'png', 'gif'].contains(ext)) {
-          type = 'image';
-        } else if (ext == 'pdf') {
-          type = 'pdf';
-        }
-
+      for (var xfile in picked) {
+        final File src = File(xfile.path);
+        final saved = await _fileService.saveImageLocally(src);
         setState(() {
           _attachments.add(
-            Attachment(url: savedFile.path, name: file.name, type: type),
+            Attachment(
+              url: saved.path,
+              name: xfile.name,
+              type: 'image',
+            ),
           );
         });
       }
+    } catch (e) {
+      debugPrint('Error picking images: $e');
     }
   }
 
-  void _removeAttachment(int index) {
+  void _removeImage(int index) {
     setState(() {
       _attachments.removeAt(index);
     });
@@ -89,44 +86,63 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
       return;
     }
 
-    final updatedEntry = widget.entry.copyWith(
+    final updated = widget.entry.copyWith(
       title: title,
       content: content,
       attachments: _attachments,
     );
 
-    context.read<JournalBloc>().add(UpdateEntry(updatedEntry));
+    context.read<JournalBloc>().add(UpdateEntry(updated));
     Navigator.of(context).pop();
   }
 
-  Widget _buildAttachmentPreview() {
+  Widget _buildImagePreview() {
     if (_attachments.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Attachments',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        ..._attachments.asMap().entries.map((entry) {
-          final index = entry.key;
-          final a = entry.value;
-          final isImage = a.type == 'image';
-          final file = File(a.url);
-
-          return ListTile(
-            leading: isImage
-                ? Image.file(file, width: 40, height: 40, fit: BoxFit.cover)
-                : const Icon(Icons.insert_drive_file),
-            title: Text(a.name),
-            onTap: () => OpenFile.open(a.url),
-            trailing: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => _removeAttachment(index),
-            ),
-          );
-        }),
-        const SizedBox(height: 24),
+        const Text('Images', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 80,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _attachments.length,
+            itemBuilder: (ctx, i) {
+              final a = _attachments[i];
+              return Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => OpenFile.open(a.url),
+                      child: Image.file(
+                        File(a.url),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => _removeImage(i),
+                      child: const CircleAvatar(
+                        radius: 10,
+                        backgroundColor: Colors.black54,
+                        child: Icon(Icons.close, size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -151,16 +167,16 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
               hint: 'Update your thoughts...',
               controller: _contentCtrl,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: _pickFiles,
-                icon: const Icon(Icons.attach_file),
-                label: const Text('Add Attachment'),
+                onPressed: _pickImages,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('Add Image'),
               ),
             ),
-            _buildAttachmentPreview(),
+            _buildImagePreview(),
             PrimaryButton(label: 'Save Changes', onPressed: _submit),
           ],
         ),
