@@ -37,7 +37,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
   int _selectedIndex = 0;
-  DateTime? _selectedDate; // ← NEW
+  DateTime? _selectedDate; // ← track the picked date
 
   static const _defaultBg = defaultMoodBackground;
 
@@ -142,12 +142,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // ← only this row is updated to toggle calendar/reset
                           HeaderRow(
-                            onCalendarPressed: _pickDate, // ← only this changed
+                            onCalendarPressed: _pickDate,
+                            isDateSelected: _selectedDate != null,
+                            onReset: _resetDate,
                             onLogoutPressed: () {
                               context.read<AuthBloc>().add(SignOutRequested());
                             },
                           ),
+
                           GreetingSection(greeting: _greeting),
                           const SizedBox(height: 24),
                           QuoteSection(quoteFuture: _quoteFuture),
@@ -182,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> _buildMonthlySections(List<JournalEntry> all) {
-    // If a date is selected, filter and show that date + Reset
+    // If a date is selected, filter down and show only that day's entries
     if (_selectedDate != null) {
       final filtered = all.where((e) {
         final d = e.timestamp;
@@ -200,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               Text(
-                label, // date header
+                label, // header now shows the picked date
                 style: const TextStyle(
                   fontSize: 20,
                   fontFamily: 'lufga-bold',
@@ -208,31 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              // original + add new commented out:
-              /*
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        NewEntryScreen(userId: widget.user.uid),
-                  ),
-                ),
+                onTap: _onAddPressed,
                 child: const Text(
                   '+ add new',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue,
-                  ),
-                ),
-              ),
-              */
-              // new Reset button with exact same styling:
-              GestureDetector(
-                onTap: _resetDate,
-                child: const Text(
-                  'Reset',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -247,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
 
-    // Otherwise, original month-grouping with commented + add new
+    // Otherwise original month‐grouping
     final Map<DateTime, List<JournalEntry>> byMonth = {};
     for (var e in all) {
       final key = DateTime(e.timestamp.year, e.timestamp.month);
@@ -267,7 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               Text(
-                label.toLowerCase(),
+                label.toLowerCase(), // original month label
                 style: const TextStyle(
                   fontSize: 20,
                   fontFamily: 'lufga-bold',
@@ -275,16 +258,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
-              // original + add new commented out:
-              /*
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        NewEntryScreen(userId: widget.user.uid),
-                  ),
-                ),
+                onTap: _onAddPressed,
                 child: const Text(
                   '+ add new',
                   style: TextStyle(
@@ -294,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              */
             ],
           ),
         ),
@@ -316,8 +290,10 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
 
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
         child: Row(
