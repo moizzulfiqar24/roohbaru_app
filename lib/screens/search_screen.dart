@@ -214,7 +214,7 @@ class _SearchViewState extends State<_SearchView> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: _resetAllFilters,
-                            child: const Text('Reset Filters'),
+                            child: const Text('Reset'),
                           ),
                         ),
                       ],
@@ -223,18 +223,21 @@ class _SearchViewState extends State<_SearchView> {
                 ),
                 const SizedBox(height: 16),
 
-                // Results list
+                // Results list: only show once the user has searched or applied a filter
                 Expanded(
-                  child: state.filteredEntries.isEmpty
-                      ? const Center(child: Text('No entries found.'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: state.filteredEntries.length,
-                          itemBuilder: (ctx, i) {
-                            final e = state.filteredEntries[i];
-                            return _buildEntryItem(e);
-                          },
-                        ),
+                  child: !_hasAnyFilter
+                      ? const SizedBox.shrink()
+                      : state.filteredEntries.isEmpty
+                          ? const Center(child: Text('No entries found.'))
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: state.filteredEntries.length,
+                              itemBuilder: (ctx, i) {
+                                final e = state.filteredEntries[i];
+                                return _buildEntryItem(e);
+                              },
+                            ),
                 ),
               ],
             ),
