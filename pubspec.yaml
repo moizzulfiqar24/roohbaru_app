@@ -29,6 +29,8 @@ dependencies:
   material_symbols_icons: ^4.0.0
   phosphor_flutter: ^1.0.0
   flutter_svg: ^2.1.0
+  flutter_image_compress: ^2.4.0
+  image: ^4.5.4
 
 dev_dependencies:
   flutter_test:
@@ -44,6 +46,7 @@ flutter:
     - assets/videos/
     - assets/fonts/
     - assets/icons/pencil-simple-slash.svg
+    - assets/icons/mood.svg
   
   fonts:
     - family: lufga-medium
@@ -70,3 +73,6 @@ flutter:
     - family: lufga-extra-light
       fonts:
         - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-extralight.otf
+    - family: lufga-bold-italic
+      fonts:
+        - asset: assets/fonts/lufga/Fontspring-DEMO-lufga-bolditalic.otf

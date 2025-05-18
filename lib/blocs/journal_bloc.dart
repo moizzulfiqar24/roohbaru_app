@@ -3,9 +3,12 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data'; // ← added
 
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img; // ← added
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -42,23 +45,18 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         final List<JournalEntry> entries = [];
         for (var doc in snap.docs) {
           var entry = JournalEntry.fromFirestore(doc);
-          // If any attachment carries Base64 data, decode and write it locally
           final List<Attachment> rehydrated = [];
           for (var att in entry.attachments) {
             if (att.base64Data != null) {
-              // Decode Base64
               final bytes = base64Decode(att.base64Data!);
-              // Ensure directory exists
               final appDir = await getApplicationDocumentsDirectory();
               final imagesDir = Directory('${appDir.path}/attachments/images');
               if (!await imagesDir.exists()) {
                 await imagesDir.create(recursive: true);
               }
-              // Save to a file named by the original attachment name
               final filePath = path.join(imagesDir.path, att.name);
               final file = File(filePath);
               await file.writeAsBytes(bytes);
-              // Build a new Attachment without Base64 data
               rehydrated.add(Attachment(
                 url: filePath,
                 name: att.name,
@@ -68,7 +66,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
               rehydrated.add(att);
             }
           }
-          // Replace attachments on the entry
           entry = entry.copyWith(attachments: rehydrated);
           entries.add(entry);
         }
@@ -88,18 +85,13 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
     try {
-      // 1) Analyze with AI
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
       var enriched = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
         suggestions: [aiResult.song, aiResult.movie],
       );
-
-      // 2) Embed each image as Base64 under the 'data' key
       enriched = await _prepareEntryForFirestore(enriched);
-
-      // 3) Write to Firestore
       await _firestore
           .collection('entries')
           .doc(enriched.id)
@@ -124,7 +116,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       final previous = JournalEntry.fromFirestore(existingDoc);
       JournalEntry updatedEntry;
 
-      // Only re-run AI if content changed
       if (event.entry.content.trim() != previous.content.trim()) {
         final aiResult = await _aiService.analyzeEntry(event.entry.content);
         updatedEntry = event.entry.copyWith(
@@ -136,9 +127,7 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         updatedEntry = event.entry;
       }
 
-      // Embed Base64 data for any new images
       updatedEntry = await _prepareEntryForFirestore(updatedEntry);
-
       await docRef.update(updatedEntry.toMap());
     } catch (e, st) {
       log('UpdateEntry error: $e\n$st');
@@ -156,19 +145,50 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
     }
   }
 
-  /// Reads each image file, converts to Base64 (if not already), enforces size limit,
-  /// and returns a new JournalEntry whose attachments carry that Base64 in 'data'.
+  /// Reads each image file, compresses (plugin then Dart fallback), encodes to Base64,
+  /// enforces size limit, and returns a new JournalEntry whose attachments carry that Base64.
   Future<JournalEntry> _prepareEntryForFirestore(JournalEntry entry) async {
     final processed = <Attachment>[];
+
     for (var a in entry.attachments) {
       if (a.type == 'image' && a.base64Data == null) {
-        final bytes = await File(a.url).readAsBytes();
+        // Read original bytes
+        Uint8List bytes = await File(a.url).readAsBytes();
+
+        // Estimate Base64 size
+        final estimatedSize = (bytes.length * 4 / 3).ceil();
+        if (estimatedSize > _maxFirestoreBase64Size) {
+          // 1) Try native plugin compression
+          Uint8List? compressed;
+          try {
+            compressed = await FlutterImageCompress.compressWithFile(
+              a.url,
+              quality: 70,
+            );
+          } catch (_) {
+            compressed = null;
+          }
+
+          if (compressed != null && compressed.lengthInBytes < bytes.length) {
+            bytes = compressed;
+          } else {
+            // 2) Dart fallback using 'image' package
+            final img.Image? original = img.decodeImage(bytes);
+            if (original != null) {
+              final img.Image resized = img.copyResize(original, width: 800);
+              final List<int> jpg = img.encodeJpg(resized, quality: 70);
+              bytes = Uint8List.fromList(jpg);
+            }
+          }
+        }
+
         final b64 = base64Encode(bytes);
         if (b64.length > _maxFirestoreBase64Size) {
           throw Exception(
-            'Image "${a.name}" is too large to store in Firestore (<1 MB Base64).',
+            'Image "${a.name}" is too large even after compression (<1 MB Base64).',
           );
         }
+
         processed.add(Attachment(
           url: a.url,
           name: a.name,
@@ -179,6 +199,7 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         processed.add(a);
       }
     }
+
     return entry.copyWith(attachments: processed);
   }
 }

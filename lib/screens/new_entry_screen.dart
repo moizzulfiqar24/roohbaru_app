@@ -190,7 +190,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 ),
                 if (_attachments.isNotEmpty)
                   SizedBox(
-                    height: 80,
+                    height: 100,
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       scrollDirection: Axis.horizontal,
@@ -199,11 +199,42 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         final a = _attachments[i];
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: Image.file(
-                            File(a.url),
-                            width: 64,
-                            height: 64,
-                            fit: BoxFit.cover,
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(a.url),
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _attachments.removeAt(i);
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },

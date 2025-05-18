@@ -15,6 +15,7 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
+import '../utils/mood_utils.dart'; // ← NEW
 import '../widgets/navbar.dart';
 import '../widgets/header_row.dart';
 import '../widgets/greeting_section.dart';
@@ -36,28 +37,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   // static const _defaultBg = Color(0xFFFFFAF7);
-  static const _defaultBg = Color(0xFFf8eed5);
-
-  static const Map<String, Color> _moodBgColor = {
-    'Happy': Color(0xFFAADAF0),
-    'Excited': Color(0xFFD6D3F9),
-    'Calm': Color(0xFF7FD1AE),
-    'Grateful': Color(0xFFF1DEAC),
-    'Loving': Color(0xFFF5C8CB),
-    'Confident': Color(0xFFFFC5A6),
-    'Sad': Color(0xFFF5C8CB),
-    'Angry': Color(0xFFFFC5A6),
-    'Anxious': Color(0xFFD6D3F9),
-    'Lonely': Color(0xFFAADAF0),
-    'Guilty': Color(0xFFF1DEAC),
-    'Jealous': Color(0xFF7FD1AE),
-    'Confused': Color(0xFFD6D3F9),
-    'Surprised': Color(0xFFAADAF0),
-    'Bored': Color(0xFFF1DEAC),
-    'Restless': Color(0xFFFFC5A6),
-    'Inspired': Color(0xFF7FD1AE),
-    'Distracted': Color(0xFFD6D3F9),
-  };
+  static const _defaultBg =
+      defaultMoodBackground; // ← now comes from util if you prefer
 
   @override
   void initState() {
@@ -113,7 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
           if (journalState is JournalLoaded) {
             all = journalState.entries;
             if (all.isNotEmpty) {
-              bg = _moodBgColor[all.first.mood] ?? _defaultBg;
+              // ← USE the util map now
+              bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
             }
           }
 
