@@ -76,7 +76,37 @@ class MyApp extends StatelessWidget {
 
 ]
 
-roohbaru_app/lib/utils: no code files are added in this folder yet
+roohbaru_app/lib/utils/mood_utils.dart: [
+// lib/utils/mood_utils.dart
+
+import 'package:flutter/material.dart';
+
+/// Default background color when no mood match is found.
+const Color defaultMoodBackground = Color(0xFFf8eed5);
+
+/// Map from mood string → background color.
+const Map<String, Color> moodBackgroundColors = {
+  'Happy': Color(0xFFAADAF0),
+  'Excited': Color(0xFFD6D3F9),
+  'Calm': Color(0xFF7FD1AE),
+  'Grateful': Color(0xFFF1DEAC),
+  'Loving': Color(0xFFF5C8CB),
+  'Confident': Color(0xFFFFC5A6),
+  'Sad': Color(0xFFF5C8CB),
+  'Angry': Color(0xFFFFC5A6),
+  'Anxious': Color(0xFFD6D3F9),
+  'Lonely': Color(0xFFAADAF0),
+  'Guilty': Color(0xFFF1DEAC),
+  'Jealous': Color(0xFF7FD1AE),
+  'Confused': Color(0xFFD6D3F9),
+  'Surprised': Color(0xFFAADAF0),
+  'Bored': Color(0xFFF1DEAC),
+  'Restless': Color(0xFFFFC5A6),
+  'Inspired': Color(0xFF7FD1AE),
+  'Distracted': Color(0xFFD6D3F9),
+};
+
+]
 
 roohbaru_app/lib/models/journal_entry.dart: [
 import 'dart:convert';
@@ -242,9 +272,12 @@ roohbaru_app/lib/blocs/journal_bloc.dart: [
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data'; // ← added
 
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:image/image.dart' as img; // ← added
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -281,23 +314,18 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         final List<JournalEntry> entries = [];
         for (var doc in snap.docs) {
           var entry = JournalEntry.fromFirestore(doc);
-          // If any attachment carries Base64 data, decode and write it locally
           final List<Attachment> rehydrated = [];
           for (var att in entry.attachments) {
             if (att.base64Data != null) {
-              // Decode Base64
               final bytes = base64Decode(att.base64Data!);
-              // Ensure directory exists
               final appDir = await getApplicationDocumentsDirectory();
               final imagesDir = Directory('${appDir.path}/attachments/images');
               if (!await imagesDir.exists()) {
                 await imagesDir.create(recursive: true);
               }
-              // Save to a file named by the original attachment name
               final filePath = path.join(imagesDir.path, att.name);
               final file = File(filePath);
               await file.writeAsBytes(bytes);
-              // Build a new Attachment without Base64 data
               rehydrated.add(Attachment(
                 url: filePath,
                 name: att.name,
@@ -307,7 +335,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
               rehydrated.add(att);
             }
           }
-          // Replace attachments on the entry
           entry = entry.copyWith(attachments: rehydrated);
           entries.add(entry);
         }
@@ -327,18 +354,13 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
 
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
     try {
-      // 1) Analyze with AI
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
       var enriched = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
         suggestions: [aiResult.song, aiResult.movie],
       );
-
-      // 2) Embed each image as Base64 under the 'data' key
       enriched = await _prepareEntryForFirestore(enriched);
-
-      // 3) Write to Firestore
       await _firestore
           .collection('entries')
           .doc(enriched.id)
@@ -363,7 +385,6 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
       final previous = JournalEntry.fromFirestore(existingDoc);
       JournalEntry updatedEntry;
 
-      // Only re-run AI if content changed
       if (event.entry.content.trim() != previous.content.trim()) {
         final aiResult = await _aiService.analyzeEntry(event.entry.content);
         updatedEntry = event.entry.copyWith(
@@ -375,9 +396,7 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         updatedEntry = event.entry;
       }
 
-      // Embed Base64 data for any new images
       updatedEntry = await _prepareEntryForFirestore(updatedEntry);
-
       await docRef.update(updatedEntry.toMap());
     } catch (e, st) {
       log('UpdateEntry error: $e\n$st');
@@ -395,19 +414,50 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
     }
   }
 
-  /// Reads each image file, converts to Base64 (if not already), enforces size limit,
-  /// and returns a new JournalEntry whose attachments carry that Base64 in 'data'.
+  /// Reads each image file, compresses (plugin then Dart fallback), encodes to Base64,
+  /// enforces size limit, and returns a new JournalEntry whose attachments carry that Base64.
   Future<JournalEntry> _prepareEntryForFirestore(JournalEntry entry) async {
     final processed = <Attachment>[];
+
     for (var a in entry.attachments) {
       if (a.type == 'image' && a.base64Data == null) {
-        final bytes = await File(a.url).readAsBytes();
+        // Read original bytes
+        Uint8List bytes = await File(a.url).readAsBytes();
+
+        // Estimate Base64 size
+        final estimatedSize = (bytes.length * 4 / 3).ceil();
+        if (estimatedSize > _maxFirestoreBase64Size) {
+          // 1) Try native plugin compression
+          Uint8List? compressed;
+          try {
+            compressed = await FlutterImageCompress.compressWithFile(
+              a.url,
+              quality: 70,
+            );
+          } catch (_) {
+            compressed = null;
+          }
+
+          if (compressed != null && compressed.lengthInBytes < bytes.length) {
+            bytes = compressed;
+          } else {
+            // 2) Dart fallback using 'image' package
+            final img.Image? original = img.decodeImage(bytes);
+            if (original != null) {
+              final img.Image resized = img.copyResize(original, width: 800);
+              final List<int> jpg = img.encodeJpg(resized, quality: 70);
+              bytes = Uint8List.fromList(jpg);
+            }
+          }
+        }
+
         final b64 = base64Encode(bytes);
         if (b64.length > _maxFirestoreBase64Size) {
           throw Exception(
-            'Image "${a.name}" is too large to store in Firestore (<1 MB Base64).',
+            'Image "${a.name}" is too large even after compression (<1 MB Base64).',
           );
         }
+
         processed.add(Attachment(
           url: a.url,
           name: a.name,
@@ -418,6 +468,7 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         processed.add(a);
       }
     }
+
     return entry.copyWith(attachments: processed);
   }
 }
@@ -751,9 +802,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
+                        // child: const Icon(
+                        //   Icons.arrow_back,
+                        //   size: 28,
+                        //   color: Colors.black,
+                        // ),
                         child: const Icon(
-                          Icons.arrow_back,
-                          size: 28,
+                          // Icons.arrow_back,
+                          PhosphorIcons.arrowCircleLeft,
+                          size: 32,
                           color: Colors.black,
                         ),
                       ),
@@ -820,7 +877,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                 ),
                 if (_attachments.isNotEmpty)
                   SizedBox(
-                    height: 80,
+                    height: 100,
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       scrollDirection: Axis.horizontal,
@@ -829,11 +886,42 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                         final a = _attachments[i];
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: Image.file(
-                            File(a.url),
-                            width: 64,
-                            height: 64,
-                            fit: BoxFit.cover,
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(a.url),
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _attachments.removeAt(i);
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -909,17 +997,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_file/open_file.dart';
 
+import '../utils/mood_utils.dart';
 import '../blocs/journal_bloc.dart';
-import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
+import '../blocs/journal_event.dart';
 import '../models/journal_entry.dart';
 import 'edit_entry_screen.dart';
 
 class EntryDetailScreen extends StatelessWidget {
   final String entryId;
-
   const EntryDetailScreen({Key? key, required this.entryId}) : super(key: key);
 
   static const List<String> moodOptions = [
@@ -945,173 +1035,302 @@ class EntryDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Entry Detail'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-              final state = context.read<JournalBloc>().state;
-              if (state is JournalLoaded) {
-                final idx = state.entries.indexWhere((e) => e.id == entryId);
-                if (idx != -1) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          EditEntryScreen(entry: state.entries[idx]),
-                    ),
-                  );
-                }
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Delete Entry'),
-                  content:
-                      const Text('Are you sure you want to delete this entry?'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel')),
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Delete',
-                            style: TextStyle(color: Colors.red))),
-                  ],
+    return BlocBuilder<JournalBloc, JournalState>(
+      builder: (context, state) {
+        if (state is JournalLoaded) {
+          final idx = state.entries.indexWhere((e) => e.id == entryId);
+          if (idx == -1) {
+            // still loading entry
+            return Scaffold(
+              backgroundColor: defaultMoodBackground,
+              body: const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final entry = state.entries[idx];
+          final bgColor =
+              moodBackgroundColors[entry.mood] ?? defaultMoodBackground;
+          final dateStr =
+              '${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}';
+
+          return Scaffold(
+            backgroundColor: bgColor,
+            body: Stack(
+              children: [
+                // Background image
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/bg2.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
-              );
-              if (confirm == true) {
-                context.read<JournalBloc>().add(DeleteEntry(entryId));
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
-      ),
-      body: BlocBuilder<JournalBloc, JournalState>(
-        builder: (context, state) {
-          if (state is JournalLoaded) {
-            final idx = state.entries.indexWhere((e) => e.id == entryId);
-            if (idx == -1) {
-              return const Center(child: Text("Entry not found."));
-            }
-
-            final entry = state.entries[idx];
-            final date =
-                "${entry.timestamp.day}/${entry.timestamp.month}/${entry.timestamp.year}";
-
-            // filter out attachments whose files are missing
-            final validAttachments = entry.attachments.where((a) {
-              return File(a.url).existsSync();
-            }).toList();
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(entry.title,
-                      style: const TextStyle(
-                          fontSize: 22, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(date, style: TextStyle(color: Colors.grey[600])),
-                  const SizedBox(height: 16),
-                  Text(entry.content, style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 24),
-
-                  // Attachments (only if any valid files)
-                  if (validAttachments.isNotEmpty) ...[
-                    const Text('Attachments',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    ...validAttachments.map((a) {
-                      final isImage = a.type == 'image';
-                      final file = File(a.url);
-                      return ListTile(
-                        leading: isImage
-                            ? Image.file(
-                                file,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => Container(
-                                  width: 40,
-                                  height: 40,
-                                  color: Colors.grey.shade300,
-                                  child:
-                                      const Icon(Icons.broken_image, size: 24),
-                                ),
-                              )
-                            : const Icon(Icons.insert_drive_file, size: 32),
-                        title: Text(a.name),
-                        onTap: () => OpenFile.open(a.url),
-                      );
-                    }),
-                    const SizedBox(height: 24),
-                  ],
-
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // Sentiment (read-only)
-                  Text('Sentiment: ${entry.sentiment}',
-                      style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 8),
-
-                  // Mood (dropdown to override)
-                  Row(
+                SafeArea(
+                  child: Column(
                     children: [
-                      const Text('Mood: ',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w500)),
-                      DropdownButton<String>(
-                        value: moodOptions.contains(entry.mood)
-                            ? entry.mood
-                            : null,
-                        hint: const Text('Select Mood'),
-                        items: moodOptions
-                            .map((m) =>
-                                DropdownMenuItem(value: m, child: Text(m)))
-                            .toList(),
-                        onChanged: (newMood) {
-                          if (newMood != null) {
-                            final overridden = entry.copyWith(mood: newMood);
-                            context
-                                .read<JournalBloc>()
-                                .add(UpdateEntry(overridden));
-                          }
-                        },
+                      // Top bar: back, spacer, share, edit, delete
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => Navigator.of(context).pop(),
+                              child: const Icon(
+                                // Icons.arrow_back,
+                                PhosphorIcons.arrowCircleLeft,
+                                size: 32,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const Spacer(),
+                            // GestureDetector(
+                            //   onTap: () {
+                            //     // TODO: share logic
+                            //   },
+                            //   child: const Icon(PhosphorIcons.shareNetwork,
+                            //       size: 28, color: Colors.black),
+                            // ),
+                            // const SizedBox(width: 16),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        EditEntryScreen(entry: entry),
+                                  ),
+                                );
+                              },
+                              child: const Icon(PhosphorIcons.pencilSimple,
+                                  size: 28, color: Colors.black),
+                            ),
+                            const SizedBox(width: 16),
+                            GestureDetector(
+                              onTap: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete Entry'),
+                                    content: const Text(
+                                        'Are you sure you want to delete this entry?'),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, false),
+                                          child: const Text('Cancel')),
+                                      TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(ctx, true),
+                                          child: const Text('Delete',
+                                              style: TextStyle(
+                                                  color: Colors.red))),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  context
+                                      .read<JournalBloc>()
+                                      .add(DeleteEntry(entryId));
+                                  Navigator.pop(context);
+                                }
+                              },
+                              child: const Icon(PhosphorIcons.trash,
+                                  size: 28, color: Colors.black),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Content
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title
+                              Text(
+                                entry.title.toLowerCase(),
+                                style: const TextStyle(
+                                  fontFamily: 'lufga-bold-italic',
+                                  // color: Color(0xFF473623),
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Date
+                              Text(
+                                dateStr,
+                                style: TextStyle(
+                                  // color: Colors.grey[600],
+                                  color: Color(0xFF473623),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              // Mood selector: icon then dropdown container
+                              Row(
+                                children: [
+                                  SvgPicture.asset(
+                                    'assets/icons/mood.svg',
+                                    width: 50,
+                                    height: 50,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: DropdownButtonHideUnderline(
+                                      child: DropdownButton<String>(
+                                        value: moodOptions.contains(entry.mood)
+                                            ? entry.mood
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          // PhosphorIcons.caretDown,
+                                        ),
+                                        dropdownColor: Colors.white,
+                                        style: const TextStyle(
+                                          fontFamily: 'lufga-light',
+                                          fontSize: 16,
+                                          color: Colors.black,
+                                        ),
+                                        items: moodOptions.map((m) {
+                                          return DropdownMenuItem<String>(
+                                            value: m,
+                                            child: Text(
+                                              m,
+                                              style: const TextStyle(
+                                                fontFamily: 'lufga-light',
+                                                fontSize: 16,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
+                                        onChanged: (newMood) {
+                                          if (newMood != null) {
+                                            final updated =
+                                                entry.copyWith(mood: newMood);
+                                            context
+                                                .read<JournalBloc>()
+                                                .add(UpdateEntry(updated));
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              // Body
+                              Text(
+                                entry.content,
+                                style: const TextStyle(
+                                    fontSize: 18, fontFamily: 'lufga-regular'),
+                              ),
+                              const SizedBox(height: 16),
+                              // Image attachments preview
+                              if (entry.attachments.any((a) =>
+                                  a.type == 'image' &&
+                                  File(a.url).existsSync())) ...[
+                                SizedBox(
+                                  height: 80,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: entry.attachments.length,
+                                    itemBuilder: (ctx, i) {
+                                      final a = entry.attachments[i];
+                                      if (a.type == 'image' &&
+                                          File(a.url).existsSync()) {
+                                        return Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 8),
+                                          child: GestureDetector(
+                                            onTap: () => OpenFile.open(a.url),
+                                            child: Image.file(
+                                              File(a.url),
+                                              width: 64,
+                                              height: 64,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              const Divider(color: Colors.black),
+                              const SizedBox(height: 16),
+                              // Suggestions
+                              const Text('Suggestions',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    // Icons.music_note,
+                                    PhosphorIcons.musicNote,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      entry.suggestions.isNotEmpty
+                                          ? entry.suggestions[0]
+                                          : '',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    // Icons.movie,
+                                    PhosphorIcons.filmStrip,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      entry.suggestions.length > 1
+                                          ? entry.suggestions[1]
+                                          : '',
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ),
+              ],
+            ),
+          );
+        }
 
-                  // Suggestions
-                  const Text('Suggestions:',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  ...entry.suggestions.map((s) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child:
-                            Text('• $s', style: const TextStyle(fontSize: 14)),
-                      )),
-                ],
-              ),
-            );
-          } else if (state is JournalError) {
-            return Center(child: Text(state.message));
-          }
-          return const Center(child: CircularProgressIndicator());
-        },
-      ),
+        // loading / error
+        return Scaffold(
+          backgroundColor: defaultMoodBackground,
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      },
     );
   }
 }
@@ -1121,6 +1340,7 @@ class EntryDetailScreen extends StatelessWidget {
 roohbaru_app/lib/screens/signup_screen.dart: [
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:roohbaru_app/widgets/social_button.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
@@ -1246,7 +1466,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 children: [
                   const SizedBox(height: 16),
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    // icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(
+                      // Icons.arrow_back,
+                      PhosphorIcons.arrowCircleLeft,
+                      size: 32,
+                      color: Colors.black,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(height: 8),
@@ -1484,6 +1710,7 @@ class _SignupScreenState extends State<SignupScreen> {
 roohbaru_app/lib/screens/login_screen.dart: [
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
@@ -1545,7 +1772,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back),
+                      // icon: const Icon(Icons.arrow_back),
+                      icon: const Icon(
+                        // Icons.arrow_back,
+                        PhosphorIcons.arrowCircleLeft,
+                        size: 32,
+                        color: Colors.black,
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                     const SizedBox(width: 8),
@@ -1686,14 +1919,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:open_file/open_file.dart';
+import 'package:uuid/uuid.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
+import 'package:flutter_svg/flutter_svg.dart'; // ✅ For SVG support
 
 import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
 import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/primary_button.dart';
 
 class EditEntryScreen extends StatefulWidget {
   final JournalEntry entry;
@@ -1706,11 +1941,12 @@ class EditEntryScreen extends StatefulWidget {
 class _EditEntryScreenState extends State<EditEntryScreen> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _contentCtrl;
-
   final FileStorageService _fileService = FileStorageService();
   final ImagePicker _picker = ImagePicker();
   late List<Attachment> _attachments;
   bool _showTitleError = false;
+  bool _isEditing = false;
+  bool _isMicActive = false;
 
   @override
   void initState() {
@@ -1727,16 +1963,26 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
     super.dispose();
   }
 
+  void _toggleEditing() {
+    setState(() {
+      _isEditing = !_isEditing;
+    });
+  }
+
+  void _toggleMic() {
+    setState(() {
+      _isMicActive = !_isMicActive;
+    });
+  }
+
   Future<void> _pickImages() async {
     try {
-      final List<XFile>? picked = await _picker.pickMultiImage(
-        imageQuality: 80,
-      );
+      final List<XFile>? picked =
+          await _picker.pickMultiImage(imageQuality: 80);
       if (picked == null) return;
 
       for (var xfile in picked) {
-        final File src = File(xfile.path);
-        final saved = await _fileService.saveImageLocally(src);
+        final saved = await _fileService.saveImageLocally(File(xfile.path));
         setState(() {
           _attachments.add(
             Attachment(
@@ -1772,94 +2018,211 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
       content: content,
       attachments: _attachments,
     );
-
     context.read<JournalBloc>().add(UpdateEntry(updated));
     Navigator.of(context).pop();
-  }
-
-  Widget _buildImagePreview() {
-    if (_attachments.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Images', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: _attachments.length,
-            itemBuilder: (ctx, i) {
-              final a = _attachments[i];
-              return Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => OpenFile.open(a.url),
-                      child: Image.file(
-                        File(a.url),
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => _removeImage(i),
-                      child: const CircleAvatar(
-                        radius: 10,
-                        backgroundColor: Colors.black54,
-                        child: Icon(Icons.close, size: 14, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Entry')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            CustomTextField(
-              label: 'Title',
-              hint: 'Update title...',
-              controller: _titleCtrl,
-              errorText: _showTitleError ? 'Title is required' : null,
+      backgroundColor: const Color(0xFFf8eed5),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/bg2.png',
+              fit: BoxFit.cover,
             ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              label: 'Content',
-              hint: 'Update your thoughts...',
-              controller: _contentCtrl,
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        // child: const Icon(
+                        //   Icons.arrow_back,
+                        //   size: 28,
+                        //   color: Colors.black,
+                        // ),
+                        child: const Icon(
+                          // Icons.arrow_back,
+                          PhosphorIcons.arrowCircleLeft,
+                          size: 32,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: _submit,
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF473623),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.check,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    controller: _titleCtrl,
+                    readOnly: !_isEditing,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Update title...',
+                      hintStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontFamily: 'lufga-semi-bold',
+                        fontSize: 32,
+                      ),
+                      border: InputBorder.none,
+                      errorText: _showTitleError ? 'Title is required' : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: TextField(
+                      controller: _contentCtrl,
+                      readOnly: !_isEditing,
+                      maxLines: null,
+                      expands: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Update your thoughts...',
+                        hintStyle: TextStyle(
+                          fontFamily: 'lufga-regular',
+                          fontSize: 18,
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_attachments.isNotEmpty)
+                  SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _attachments.length,
+                      itemBuilder: (ctx, i) {
+                        final a = _attachments[i];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: GestureDetector(
+                                  onTap: () => OpenFile.open(a.url),
+                                  child: Image.file(
+                                    File(a.url),
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _removeImage(i),
+                                  child: Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 16),
+              ],
             ),
-            const SizedBox(height: 24),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _pickImages,
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Add Image'),
+          ),
+        ],
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(85, 0, 85, 45),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(50),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.07),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
-            _buildImagePreview(),
-            PrimaryButton(label: 'Save Changes', onPressed: _submit),
-          ],
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _isEditing
+                  ? navbarNewEntry(
+                      icon: PhosphorIcons.pencilSimple,
+                      active: true,
+                      onTap: _toggleEditing,
+                    )
+                  : navbarNewEntry(
+                      iconWidget: SvgPicture.asset(
+                        'assets/icons/pencil-simple-slash.svg',
+                        width: 30,
+                        height: 30,
+                        colorFilter: const ColorFilter.mode(
+                            Colors.black54, BlendMode.srcIn),
+                      ),
+                      active: false,
+                      onTap: _toggleEditing,
+                    ),
+              navbarNewEntry(
+                icon: PhosphorIcons.image,
+                active: false,
+                onTap: _pickImages,
+              ),
+              navbarNewEntry(
+                icon: _isMicActive
+                    ? PhosphorIcons.microphone
+                    : PhosphorIcons.microphoneSlash,
+                active: _isMicActive,
+                onTap: _toggleMic,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1886,6 +2249,7 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
+import '../utils/mood_utils.dart'; // ← NEW
 import '../widgets/navbar.dart';
 import '../widgets/header_row.dart';
 import '../widgets/greeting_section.dart';
@@ -1907,28 +2271,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   // static const _defaultBg = Color(0xFFFFFAF7);
-  static const _defaultBg = Color(0xFFf8eed5);
-
-  static const Map<String, Color> _moodBgColor = {
-    'Happy': Color(0xFFAADAF0),
-    'Excited': Color(0xFFD6D3F9),
-    'Calm': Color(0xFF7FD1AE),
-    'Grateful': Color(0xFFF1DEAC),
-    'Loving': Color(0xFFF5C8CB),
-    'Confident': Color(0xFFFFC5A6),
-    'Sad': Color(0xFFF5C8CB),
-    'Angry': Color(0xFFFFC5A6),
-    'Anxious': Color(0xFFD6D3F9),
-    'Lonely': Color(0xFFAADAF0),
-    'Guilty': Color(0xFFF1DEAC),
-    'Jealous': Color(0xFF7FD1AE),
-    'Confused': Color(0xFFD6D3F9),
-    'Surprised': Color(0xFFAADAF0),
-    'Bored': Color(0xFFF1DEAC),
-    'Restless': Color(0xFFFFC5A6),
-    'Inspired': Color(0xFF7FD1AE),
-    'Distracted': Color(0xFFD6D3F9),
-  };
+  static const _defaultBg =
+      defaultMoodBackground; // ← now comes from util if you prefer
 
   @override
   void initState() {
@@ -1984,7 +2328,8 @@ class _HomeScreenState extends State<HomeScreen> {
           if (journalState is JournalLoaded) {
             all = journalState.entries;
             if (all.isNotEmpty) {
-              bg = _moodBgColor[all.first.mood] ?? _defaultBg;
+              // ← USE the util map now
+              bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
             }
           }
 

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:roohbaru_app/screens/search_screen.dart';
 
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
@@ -15,11 +16,12 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
-import '../utils/mood_utils.dart'; // ← NEW
+import '../utils/mood_utils.dart';
 import '../widgets/navbar.dart';
 import '../widgets/header_row.dart';
 import '../widgets/greeting_section.dart';
 import '../widgets/quote_section.dart';
+import '../widgets/custom_date_picker.dart'; // ← NEW import
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
 import 'entry_detail_screen.dart';
@@ -35,10 +37,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
   int _selectedIndex = 0;
+  DateTime? _selectedDate; // ← NEW
 
-  // static const _defaultBg = Color(0xFFFFFAF7);
-  static const _defaultBg =
-      defaultMoodBackground; // ← now comes from util if you prefer
+  static const _defaultBg = defaultMoodBackground;
 
   @override
   void initState() {
@@ -60,6 +61,24 @@ class _HomeScreenState extends State<HomeScreen> {
     return words.take(limit).join(' ') + '...';
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showCustomDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      });
+    }
+  }
+
+  void _resetDate() {
+    setState(() {
+      _selectedDate = null;
+    });
+  }
+
   void _onAddPressed() {
     Navigator.push(
       context,
@@ -70,7 +89,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemSelected(int index) {
-    setState(() => _selectedIndex = index);
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
+    } else {
+      setState(() => _selectedIndex = index);
+    }
   }
 
   @override
@@ -94,7 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
           if (journalState is JournalLoaded) {
             all = journalState.entries;
             if (all.isNotEmpty) {
-              // ← USE the util map now
               bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
             }
           }
@@ -118,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           HeaderRow(
-                            onCalendarPressed: () {},
+                            onCalendarPressed: _pickDate, // ← only this changed
                             onLogoutPressed: () {
                               context.read<AuthBloc>().add(SignOutRequested());
                             },
@@ -157,6 +182,72 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> _buildMonthlySections(List<JournalEntry> all) {
+    // If a date is selected, filter and show that date + Reset
+    if (_selectedDate != null) {
+      final filtered = all.where((e) {
+        final d = e.timestamp;
+        return d.year == _selectedDate!.year &&
+            d.month == _selectedDate!.month &&
+            d.day == _selectedDate!.day;
+      }).toList();
+
+      final label =
+          DateFormat('d MMM yyyy').format(_selectedDate!).toLowerCase();
+
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10),
+          child: Row(
+            children: [
+              Text(
+                label, // date header
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontFamily: 'lufga-bold',
+                  color: Color(0xFF473623),
+                ),
+              ),
+              const Spacer(),
+              // original + add new commented out:
+              /*
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        NewEntryScreen(userId: widget.user.uid),
+                  ),
+                ),
+                child: const Text(
+                  '+ add new',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+              */
+              // new Reset button with exact same styling:
+              GestureDetector(
+                onTap: _resetDate,
+                child: const Text(
+                  'Reset',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (var e in filtered) _buildEntryItem(e),
+      ];
+    }
+
+    // Otherwise, original month-grouping with commented + add new
     final Map<DateTime, List<JournalEntry>> byMonth = {};
     for (var e in all) {
       final key = DateTime(e.timestamp.year, e.timestamp.month);
@@ -184,11 +275,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Spacer(),
+              // original + add new commented out:
+              /*
               GestureDetector(
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => NewEntryScreen(userId: widget.user.uid),
+                    builder: (_) =>
+                        NewEntryScreen(userId: widget.user.uid),
                   ),
                 ),
                 child: const Text(
@@ -200,16 +294,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+              */
             ],
           ),
         ),
       );
-
       for (var e in entries) {
         sections.add(_buildEntryItem(e));
       }
     }
-
     return sections;
   }
 
@@ -223,10 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
-      ),
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id))),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
         child: Row(
@@ -295,7 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 File(path),
                                 height: 120,
                                 fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => Container(
+                                errorBuilder: (ctx, _, __) => Container(
                                   height: 120,
                                   color: Colors.grey.shade200,
                                   child: const Icon(Icons.broken_image),
