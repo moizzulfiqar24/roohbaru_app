@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:roohbaru_app/widgets/social_button.dart';
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
@@ -125,7 +126,13 @@ class _SignupScreenState extends State<SignupScreen> {
                 children: [
                   const SizedBox(height: 16),
                   IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    // icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(
+                      // Icons.arrow_back,
+                      PhosphorIcons.arrowCircleLeft,
+                      size: 32,
+                      color: Colors.black,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(height: 8),

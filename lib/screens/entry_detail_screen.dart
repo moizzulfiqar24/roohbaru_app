@@ -82,18 +82,22 @@ class EntryDetailScreen extends StatelessWidget {
                           children: [
                             GestureDetector(
                               onTap: () => Navigator.of(context).pop(),
-                              child: const Icon(Icons.arrow_back,
-                                  size: 28, color: Colors.black),
+                              child: const Icon(
+                                // Icons.arrow_back,
+                                PhosphorIcons.arrowCircleLeft,
+                                size: 32,
+                                color: Colors.black,
+                              ),
                             ),
                             const Spacer(),
-                            GestureDetector(
-                              onTap: () {
-                                // TODO: share logic
-                              },
-                              child: const Icon(PhosphorIcons.shareNetwork,
-                                  size: 28, color: Colors.black),
-                            ),
-                            const SizedBox(width: 16),
+                            // GestureDetector(
+                            //   onTap: () {
+                            //     // TODO: share logic
+                            //   },
+                            //   child: const Icon(PhosphorIcons.shareNetwork,
+                            //       size: 28, color: Colors.black),
+                            // ),
+                            // const SizedBox(width: 16),
                             GestureDetector(
                               onTap: () {
                                 Navigator.push(

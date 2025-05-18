@@ -130,9 +130,15 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),
+                        // child: const Icon(
+                        //   Icons.arrow_back,
+                        //   size: 28,
+                        //   color: Colors.black,
+                        // ),
                         child: const Icon(
-                          Icons.arrow_back,
-                          size: 28,
+                          // Icons.arrow_back,
+                          PhosphorIcons.arrowCircleLeft,
+                          size: 32,
                           color: Colors.black,
                         ),
                       ),
