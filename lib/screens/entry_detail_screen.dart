@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_file/open_file.dart';
+import 'package:roohbaru_app/widgets/suggestion_card.dart';
 
 import '../utils/mood_utils.dart';
 import '../blocs/journal_bloc.dart';
@@ -248,60 +249,97 @@ class EntryDetailScreen extends StatelessWidget {
                                     },
                                   ),
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 5),
                               ],
-                              const Divider(color: Colors.black),
-                              const SizedBox(height: 16),
-
-                              // Suggestions
-                              const Text('Suggestions',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(PhosphorIcons.musicNote, size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      entry.suggestions.isNotEmpty
-                                          ? entry.suggestions[0]
-                                          : '',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
+                              // Refined Separator
+                              Container(
+                                height: 1,
+                                margin:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withOpacity(0.9),
+                                      Colors.transparent,
+                                    ],
+                                    stops: const [0.0, 0.5, 1.0],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
                                   ),
-                                ],
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(PhosphorIcons.filmStrip, size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      entry.suggestions.length > 1
-                                          ? entry.suggestions[1]
-                                          : '',
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              // const SizedBox(height: 2),
 
-                              // ⬇️ NEW: AI Analysis
+                              // Suggestions Section
+                              const Text(
+                                'Suggestions',
+                                style: TextStyle(
+                                  fontFamily: 'lufga-bold',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2E2E2E),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                               const SizedBox(height: 12),
-                              const Text('AI Analysis',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500)),
-                              const SizedBox(height: 4),
-                              Text(
-                                entry.analysis,
-                                style: const TextStyle(fontSize: 14),
+                              SuggestionCard(
+                                  icon: PhosphorIcons.musicNote,
+                                  suggestion: entry.suggestions.isNotEmpty
+                                      ? entry.suggestions[0]
+                                      : 'No music suggestion available',
+                                  context: context),
+                              const SizedBox(height: 8),
+                              SuggestionCard(
+                                  icon: PhosphorIcons.filmStrip,
+                                  suggestion: entry.suggestions.length > 1
+                                      ? entry.suggestions[1]
+                                      : 'No movie suggestion available',
+                                  context: context),
+
+                              // AI Analysis Section
+                              const SizedBox(height: 12),
+                              const Text(
+                                'AI Insights',
+                                style: TextStyle(
+                                  fontFamily: 'lufga-bold',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2E2E2E),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  // color: Colors.white.withOpacity(0.3),
+                                  color:
+                                      const Color(0xFF2E2E2E).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  entry.analysis.isNotEmpty
+                                      ? entry.analysis
+                                      : 'No AI insights available at this time.',
+                                  style: const TextStyle(
+                                    fontFamily: 'lufga-regular',
+                                    fontSize: 15,
+                                    color: Color(0xFF4A4A4A),
+                                    height: 1.5,
+                                  ),
+                                ),
                               ),
 
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 32),
                             ],
                           ),
                         ),
@@ -314,7 +352,7 @@ class EntryDetailScreen extends StatelessWidget {
           );
         }
 
-        // loading / error
+        // Loading / Error
         return Scaffold(
           backgroundColor: defaultMoodBackground,
           body: const Center(child: CircularProgressIndicator()),
