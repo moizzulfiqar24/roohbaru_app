@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:roohbaru_app/screens/insights_screen.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
 
 import '../blocs/auth_bloc.dart';
@@ -93,6 +94,12 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
+    } else if (index == 2) {
+      // ← HANDLES INSIGHTS TAB
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const InsightsScreen()),
       );
     } else {
       setState(() => _selectedIndex = index);
