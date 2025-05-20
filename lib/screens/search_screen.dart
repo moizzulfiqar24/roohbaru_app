@@ -91,16 +91,29 @@ class _SearchViewState extends State<_SearchView> {
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: const Icon(
-                        PhosphorIcons.arrowCircleLeft,
-                        size: 32,
-                        color: Colors.black,
+                  child: Row(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: const Icon(
+                            PhosphorIcons.arrowCircleLeft,
+                            size: 32,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        'Search',
+                        style: TextStyle(
+                          fontFamily: 'lufga-bold',
+                          fontSize: 24,
+                          // fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -193,14 +206,14 @@ class _SearchViewState extends State<_SearchView> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.grey.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
+                        // BoxShadow(
+                        //   color: Colors.black12,
+                        //   blurRadius: 2,
+                        //   offset: Offset(0, 3),
+                        // ),
                       ],
                     ),
                     child: Column(
@@ -312,7 +325,7 @@ class _SearchViewState extends State<_SearchView> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 16),
+                                      horizontal: 16, vertical: 14.5),
                                   decoration: BoxDecoration(
                                     // color: Colors.white.withOpacity(0.8),
                                     color: Colors.white,

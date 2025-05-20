@@ -233,6 +233,89 @@ class JournalEntry {
 
 ]
 
+roohbaru_app/lib/blocs/insights_state.dart: [
+// lib/blocs/insights_state.dart
+import 'package:equatable/equatable.dart';
+import 'package:roohbaru_app/models/journal_entry.dart';
+import '../blocs/insights_event.dart';
+
+class InsightsState extends Equatable {
+  final List<JournalEntry> allEntries;
+  final DurationFilter durationFilter;
+  final int totalEntries;
+  final double changePercent;
+  final bool hasChange; // false for allTime
+  final bool isIncrease; // true if +, false if –
+  final Map<String, int> categoryCounts; // { 'Positive': 10, ... }
+  final String? selectedCategory; // which bar was tapped
+  final Map<String, int> moodBreakdownCounts; // per-mood in selected category
+
+  const InsightsState({
+    required this.allEntries,
+    required this.durationFilter,
+    required this.totalEntries,
+    required this.changePercent,
+    required this.hasChange,
+    required this.isIncrease,
+    required this.categoryCounts,
+    required this.selectedCategory,
+    required this.moodBreakdownCounts,
+  });
+
+  factory InsightsState.initial() {
+    return InsightsState(
+      allEntries: [],
+      durationFilter: DurationFilter.allTime,
+      totalEntries: 0,
+      changePercent: 0,
+      hasChange: false,
+      isIncrease: true,
+      categoryCounts: const {'Positive': 0, 'Neutral': 0, 'Negative': 0},
+      selectedCategory: null,
+      moodBreakdownCounts: const {},
+    );
+  }
+
+  InsightsState copyWith({
+    List<JournalEntry>? allEntries,
+    DurationFilter? durationFilter,
+    int? totalEntries,
+    double? changePercent,
+    bool? hasChange,
+    bool? isIncrease,
+    Map<String, int>? categoryCounts,
+    String? selectedCategory, // pass null to clear
+    Map<String, int>? moodBreakdownCounts,
+  }) {
+    return InsightsState(
+      allEntries: allEntries ?? this.allEntries,
+      durationFilter: durationFilter ?? this.durationFilter,
+      totalEntries: totalEntries ?? this.totalEntries,
+      changePercent: changePercent ?? this.changePercent,
+      hasChange: hasChange ?? this.hasChange,
+      isIncrease: isIncrease ?? this.isIncrease,
+      categoryCounts: categoryCounts ?? this.categoryCounts,
+      selectedCategory: selectedCategory,
+      moodBreakdownCounts: moodBreakdownCounts ?? this.moodBreakdownCounts,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        allEntries,
+        durationFilter,
+        totalEntries,
+        changePercent,
+        hasChange,
+        isIncrease,
+        categoryCounts,
+        selectedCategory,
+        moodBreakdownCounts,
+      ];
+}
+
+]
+
 roohbaru_app/lib/blocs/search_event.dart: [
 import 'package:equatable/equatable.dart';
 import '../models/journal_entry.dart';
@@ -628,6 +711,45 @@ class JournalError extends JournalState {
 
 ]
 
+roohbaru_app/lib/blocs/insights_event.dart: [
+// lib/blocs/insights_event.dart
+import 'package:equatable/equatable.dart';
+import '../models/journal_entry.dart';
+
+/// Which time window is selected.
+enum DurationFilter { allTime, last30Days, last7Days }
+
+abstract class InsightsEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+/// When JournalBloc emits new entries.
+class EntriesUpdated extends InsightsEvent {
+  final List<JournalEntry> entries;
+  EntriesUpdated(this.entries);
+  @override
+  List<Object?> get props => [entries];
+}
+
+/// User tapped one of the duration buttons.
+class DurationChanged extends InsightsEvent {
+  final DurationFilter filter;
+  DurationChanged(this.filter);
+  @override
+  List<Object?> get props => [filter];
+}
+
+/// User tapped one of the bars (Positive/Neutral/Negative).
+class CategorySelected extends InsightsEvent {
+  final String category;
+  CategorySelected(this.category);
+  @override
+  List<Object?> get props => [category];
+}
+
+]
+
 roohbaru_app/lib/blocs/search_state.dart: [
 import 'package:equatable/equatable.dart';
 import '../models/journal_entry.dart';
@@ -987,6 +1109,186 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthError('Sign-out failed'));
       emit(AuthUnauthenticated());
     }
+  }
+}
+
+]
+
+roohbaru_app/lib/blocs/insights_bloc.dart: [
+// lib/blocs/insights_bloc.dart
+import 'dart:async';
+import 'package:bloc/bloc.dart';
+import '../models/journal_entry.dart';
+import 'journal_bloc.dart';
+import 'journal_state.dart';
+import 'insights_event.dart';
+import 'insights_state.dart';
+
+/// Helper to bundle metric results.
+class _Metrics {
+  final int total;
+  final double percent;
+  final bool hasChange;
+  final bool isIncrease;
+  _Metrics(this.total, this.percent, this.hasChange, this.isIncrease);
+}
+
+class InsightsBloc extends Bloc<InsightsEvent, InsightsState> {
+  final JournalBloc journalBloc;
+  late final StreamSubscription _journalSub;
+
+  /// Define which moods go in which bucket.
+  static const Map<String, List<String>> moodCategories = {
+    'Positive': [
+      'Happy',
+      'Excited',
+      'Calm',
+      'Grateful',
+      'Loving',
+      'Confident',
+      'Inspired'
+    ],
+    'Neutral': ['Surprised', 'Bored', 'Distracted'],
+    'Negative': [
+      'Sad',
+      'Angry',
+      'Anxious',
+      'Lonely',
+      'Guilty',
+      'Jealous',
+      'Confused',
+      'Restless'
+    ],
+  };
+
+  InsightsBloc({required this.journalBloc}) : super(InsightsState.initial()) {
+    // 1) Handlers
+    on<EntriesUpdated>(_onEntriesUpdated);
+    on<DurationChanged>(_onDurationChanged);
+    on<CategorySelected>(_onCategorySelected);
+
+    // 2) Seed initial if already loaded
+    if (journalBloc.state is JournalLoaded) {
+      add(EntriesUpdated((journalBloc.state as JournalLoaded).entries));
+    }
+
+    // 3) Subscribe for future journal updates
+    _journalSub = journalBloc.stream.listen((js) {
+      if (js is JournalLoaded) add(EntriesUpdated(js.entries));
+    });
+  }
+
+  void _onEntriesUpdated(EntriesUpdated event, Emitter<InsightsState> emit) {
+    // Always recompute everything based on current filter
+    final now = DateTime.now();
+    final metrics = _computeMetrics(event.entries, state.durationFilter, now);
+    final filtered = _filterEntries(event.entries, state.durationFilter, now);
+    final categories = _computeCategoryCounts(filtered);
+
+    emit(state.copyWith(
+      allEntries: event.entries,
+      totalEntries: metrics.total,
+      changePercent: metrics.percent,
+      hasChange: metrics.hasChange,
+      isIncrease: metrics.isIncrease,
+      categoryCounts: categories,
+      selectedCategory: null,
+      moodBreakdownCounts: {},
+    ));
+  }
+
+  void _onDurationChanged(DurationChanged event, Emitter<InsightsState> emit) {
+    final now = DateTime.now();
+    final metrics = _computeMetrics(state.allEntries, event.filter, now);
+    final filtered = _filterEntries(state.allEntries, event.filter, now);
+    final categories = _computeCategoryCounts(filtered);
+
+    emit(state.copyWith(
+      durationFilter: event.filter,
+      totalEntries: metrics.total,
+      changePercent: metrics.percent,
+      hasChange: metrics.hasChange,
+      isIncrease: metrics.isIncrease,
+      categoryCounts: categories,
+      selectedCategory: null,
+      moodBreakdownCounts: {},
+    ));
+  }
+
+  void _onCategorySelected(
+      CategorySelected event, Emitter<InsightsState> emit) {
+    final now = DateTime.now();
+    final filtered =
+        _filterEntries(state.allEntries, state.durationFilter, now);
+    final moods = moodCategories[event.category]!;
+    final breakdown = <String, int>{};
+    for (var m in moods) {
+      breakdown[m] = filtered.where((e) => e.mood == m).length;
+    }
+
+    emit(state.copyWith(
+      selectedCategory: event.category,
+      moodBreakdownCounts: breakdown,
+    ));
+  }
+
+  // Helpers:
+
+  List<JournalEntry> _filterEntries(
+    List<JournalEntry> all,
+    DurationFilter f,
+    DateTime now,
+  ) {
+    if (f == DurationFilter.allTime) return all;
+    final cutoff =
+        now.subtract(Duration(days: f == DurationFilter.last30Days ? 30 : 7));
+    return all.where((e) => e.timestamp.isAfter(cutoff)).toList();
+  }
+
+  _Metrics _computeMetrics(
+    List<JournalEntry> all,
+    DurationFilter f,
+    DateTime now,
+  ) {
+    if (f == DurationFilter.allTime) {
+      return _Metrics(all.length, 0, false, true);
+    }
+
+    // current window
+    final days = f == DurationFilter.last30Days ? 30 : 7;
+    final start = now.subtract(Duration(days: days));
+    final current = all.where((e) => e.timestamp.isAfter(start)).length;
+
+    // previous window
+    final prevStart = now.subtract(Duration(days: days * 2));
+    final previous = all
+        .where((e) =>
+            e.timestamp.isAfter(prevStart) && e.timestamp.isBefore(start))
+        .length;
+
+    if (previous == 0) {
+      final percent = current == 0 ? 0 : 100.0;
+      return _Metrics(current, percent.toDouble(), current > 0, true);
+    }
+
+    final diff = current - previous;
+    final pct = diff / previous * 100;
+    return _Metrics(current, pct.abs(), true, diff >= 0);
+  }
+
+  Map<String, int> _computeCategoryCounts(List<JournalEntry> filtered) {
+    final map = <String, int>{};
+    for (var cat in moodCategories.keys) {
+      map[cat] =
+          filtered.where((e) => moodCategories[cat]!.contains(e.mood)).length;
+    }
+    return map;
+  }
+
+  @override
+  Future<void> close() {
+    _journalSub.cancel();
+    return super.close();
   }
 }
 
@@ -2644,6 +2946,163 @@ class _SignupScreenState extends State<SignupScreen> {
 
 ]
 
+roohbaru_app/lib/screens/insights_screen.dart: [
+// lib/screens/insights_screen.dart
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:roohbaru_app/models/journal_entry.dart';
+
+import '../blocs/insights_bloc.dart';
+import '../blocs/insights_event.dart';
+import '../blocs/insights_state.dart';
+import '../blocs/journal_bloc.dart';
+import '../widgets/insights/duration_selector.dart';
+import '../widgets/insights/analytics_card.dart';
+import '../widgets/insights/mood_bar_chart.dart';
+import '../widgets/insights/mood_pie_chart.dart'; // ← NEW
+
+class InsightsScreen extends StatelessWidget {
+  const InsightsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => InsightsBloc(journalBloc: context.read<JournalBloc>()),
+      child: const _InsightsView(),
+    );
+  }
+}
+
+class _InsightsView extends StatelessWidget {
+  const _InsightsView();
+
+  // same buckets as in the bloc
+  static const Map<String, List<String>> _moodCategories = {
+    'Positive': [
+      'Happy',
+      'Excited',
+      'Calm',
+      'Grateful',
+      'Loving',
+      'Confident',
+      'Inspired'
+    ],
+    'Neutral': ['Surprised', 'Bored', 'Distracted'],
+    'Negative': [
+      'Sad',
+      'Angry',
+      'Anxious',
+      'Lonely',
+      'Guilty',
+      'Jealous',
+      'Confused',
+      'Restless'
+    ],
+  };
+
+  // replicate the bloc’s filter logic
+  List<JournalEntry> _filteredEntries(
+      List<JournalEntry> all, DurationFilter f) {
+    if (f == DurationFilter.allTime) return all;
+    final now = DateTime.now();
+    final days = f == DurationFilter.last30Days ? 30 : 7;
+    final cutoff = now.subtract(Duration(days: days));
+    return all.where((e) => e.timestamp.isAfter(cutoff)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Insights'),
+        leading: const BackButton(),
+      ),
+      body: BlocBuilder<InsightsBloc, InsightsState>(
+        builder: (ctx, state) {
+          final entries =
+              _filteredEntries(state.allEntries, state.durationFilter);
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 1) Duration selector
+                DurationSelector(
+                  current: state.durationFilter,
+                  onChanged: (f) =>
+                      ctx.read<InsightsBloc>().add(DurationChanged(f)),
+                ),
+
+                const SizedBox(height: 24),
+
+                // 2) Analytics card
+                AnalyticsCard(
+                  title: 'Entries',
+                  total: state.totalEntries,
+                  changePercent: state.changePercent,
+                  hasChange: state.hasChange,
+                  isIncrease: state.isIncrease,
+                ),
+
+                const SizedBox(height: 24),
+
+                // 3) Bar chart
+                SizedBox(
+                  height: 260,
+                  child: MoodBarChart(
+                    data: state.categoryCounts,
+                    selectedCategory: null,
+                    onCategoryTap: (_) {},
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // 4) Pie‐chart breakdown for each category
+                for (final category in ['Positive', 'Neutral', 'Negative']) ...[
+                  Builder(builder: (_) {
+                    // build only moods with count ≥ 1
+                    final breakdown = <String, int>{};
+                    for (var m in _moodCategories[category]!) {
+                      final cnt = entries.where((e) => e.mood == m).length;
+                      if (cnt > 0) breakdown[m] = cnt;
+                    }
+                    if (breakdown.isEmpty) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // render the pie chart
+                        SizedBox(
+                          height: 200,
+                          child: MoodPieChart(data: breakdown),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  }),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+]
+
 roohbaru_app/lib/screens/login_screen.dart: [
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -3819,6 +4278,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:roohbaru_app/screens/insights_screen.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
 
 import '../blocs/auth_bloc.dart';
@@ -3906,6 +4366,12 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
+    } else if (index == 2) {
+      // ← HANDLES INSIGHTS TAB
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const InsightsScreen()),
       );
     } else {
       setState(() => _selectedIndex = index);
@@ -5418,6 +5884,385 @@ class SocialButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/insights/mood_bar_chart.dart: [
+// lib/widgets/insights/mood_bar_chart.dart
+
+import 'package:flutter/material.dart';
+
+typedef CategoryTap = void Function(String category);
+
+class MoodBarChart extends StatelessWidget {
+  final Map<String, int> data;
+  final String? selectedCategory;
+  final CategoryTap onCategoryTap;
+
+  const MoodBarChart({
+    super.key,
+    required this.data,
+    required this.selectedCategory,
+    required this.onCategoryTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1) Compute both max and total
+    final maxValue =
+        data.values.isEmpty ? 1 : data.values.reduce((a, b) => a > b ? a : b);
+
+    final total = data.values.fold<int>(0, (sum, v) => sum + v);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: data.entries.map((entry) {
+          final value = entry.value;
+
+          // 2) Height ratio: you can choose max-value scaling...
+          // final heightRatio = maxValue == 0 ? 0.0 : value / maxValue;
+
+          // ...or total-share scaling. Here we use total-share so bars reflect % of all entries:
+          final heightRatio = total == 0 ? 0.0 : value / total;
+
+          // 3) Share ratio for label
+          final shareRatio = total == 0 ? 0.0 : value / total;
+          final percentage = '${(shareRatio * 100).round()}%';
+
+          // pick your colors
+          final isSelected = entry.key == selectedCategory;
+          final base = _getBarColor(entry.key);
+          final color = isSelected ? base : base.withOpacity(0.85);
+          final dark = _darken(color, 0.2);
+
+          return GestureDetector(
+            onTap: () => onCategoryTap(entry.key),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Outer container for fixed height
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 180,
+                  width: 60,
+                  alignment: Alignment.bottomCenter,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    // 4) Use heightRatio * maxInnerHeight
+                    height: 160 * heightRatio,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        colors: [color, dark],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: color.withOpacity(0.6),
+                                blurRadius: 12,
+                                offset: const Offset(0, 5),
+                              )
+                            ]
+                          : [
+                              const BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 6,
+                                offset: Offset(0, 4),
+                              )
+                            ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      percentage,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    entry.key,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : Colors.black87,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Color _getBarColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'positive':
+        return const Color(0xFF00D26A);
+      case 'neutral':
+        return const Color(0xFFFAA937);
+      case 'negative':
+        return const Color(0xFFE84855);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _darken(Color color, double amt) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness - amt).clamp(0.0, 1.0)).toColor();
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/insights/analytics_card.dart: [
+// lib/widgets/analytics_card.dart
+import 'package:flutter/material.dart';
+
+class AnalyticsCard extends StatelessWidget {
+  final String title;
+  final int total;
+  final double changePercent;
+  final bool hasChange;
+  final bool isIncrease;
+
+  const AnalyticsCard({
+    super.key,
+    required this.title,
+    required this.total,
+    required this.changePercent,
+    required this.hasChange,
+    required this.isIncrease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final changeText = hasChange
+        ? '${isIncrease ? '+' : '-'}${changePercent.toStringAsFixed(0)}%'
+        : '-';
+    final changeColor =
+        !hasChange ? Colors.grey : (isIncrease ? Colors.green : Colors.red);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style:
+                        const TextStyle(fontSize: 16, color: Colors.black54)),
+                const SizedBox(height: 4),
+                Text('$total',
+                    style: const TextStyle(
+                        fontSize: 28, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: changeColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(changeText,
+                style:
+                    TextStyle(color: changeColor, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/insights/duration_selector.dart: [
+// lib/widgets/duration_selector.dart
+import 'package:flutter/material.dart';
+import '../../blocs/insights_event.dart';
+
+class DurationSelector extends StatelessWidget {
+  final DurationFilter current;
+  final ValueChanged<DurationFilter> onChanged;
+
+  const DurationSelector({
+    super.key,
+    required this.current,
+    required this.onChanged,
+  });
+
+  Widget _buildButton(
+    String label,
+    DurationFilter filter,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.black : Colors.white,
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _buildButton(
+          'All-Time',
+          DurationFilter.allTime,
+          current == DurationFilter.allTime,
+          () => onChanged(DurationFilter.allTime),
+        ),
+        const SizedBox(width: 8),
+        _buildButton(
+          '30d',
+          DurationFilter.last30Days,
+          current == DurationFilter.last30Days,
+          () => onChanged(DurationFilter.last30Days),
+        ),
+        const SizedBox(width: 8),
+        _buildButton(
+          '7d',
+          DurationFilter.last7Days,
+          current == DurationFilter.last7Days,
+          () => onChanged(DurationFilter.last7Days),
+        ),
+      ],
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/insights/mood_pie_chart.dart: [
+// lib/widgets/insights/mood_pie_chart.dart
+
+import 'dart:math';
+import 'package:flutter/material.dart';
+import '../../utils/mood_utils.dart'; // for moodBackgroundColors
+
+class MoodPieChart extends StatelessWidget {
+  final Map<String, int> data;
+
+  const MoodPieChart({super.key, required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _MoodPieChartPainter(data),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _MoodPieChartPainter extends CustomPainter {
+  final Map<String, int> data;
+  _MoodPieChartPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final total = data.values.fold<int>(0, (sum, v) => sum + v);
+    if (total == 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = min(size.width, size.height) / 2 * 0.9;
+    var startAngle = -pi / 2; // start at top
+
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+
+    data.forEach((mood, count) {
+      final sweep = 2 * pi * (count / total);
+      final paint = Paint()
+        ..style = PaintingStyle.fill
+        ..color = moodBackgroundColors[mood] ?? Colors.grey;
+
+      // draw slice
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweep,
+        true,
+        paint,
+      );
+
+      // midpoint angle for label
+      final midAngle = startAngle + sweep / 2;
+      final labelRadius = radius * 0.65;
+      final labelX = center.dx + cos(midAngle) * labelRadius;
+      final labelY = center.dy + sin(midAngle) * labelRadius;
+
+      // prepare label text: “Mood (xx%)”
+      final percent = (count / total * 100).round();
+      textPainter.text = TextSpan(
+        text: '$mood\n$percent%',
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      textPainter.layout();
+
+      // paint label centered
+      final labelOffset = Offset(
+        labelX - textPainter.width / 2,
+        labelY - textPainter.height / 2,
+      );
+      textPainter.paint(canvas, labelOffset);
+
+      startAngle += sweep;
+    });
+  }
+
+  @override
+  bool shouldRepaint(covariant _MoodPieChartPainter old) {
+    return old.data != data;
   }
 }
 
