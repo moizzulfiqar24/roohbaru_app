@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class CustomNavbar extends StatefulWidget {
   final int selectedIndex;
@@ -74,11 +75,31 @@ class _CustomNavbarState extends State<CustomNavbar>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildAnimatedNavItem(0, 'Home', Icons.home_rounded),
-              _buildAnimatedNavItem(1, 'Search', Icons.search_rounded),
+              _buildAnimatedNavItem(
+                0,
+                'Home',
+                Icons.home_rounded,
+                // PhosphorIcons.house,
+              ),
+              _buildAnimatedNavItem(
+                1,
+                'Search',
+                Icons.search_rounded,
+                // PhosphorIcons.magnifyingGlass,
+              ),
               const SizedBox(width: 48), // Reduced spacer for smaller FAB
-              _buildAnimatedNavItem(2, 'Insights', Icons.bar_chart_rounded),
-              _buildAnimatedNavItem(3, 'Profile', Icons.person),
+              _buildAnimatedNavItem(
+                2,
+                'Insights',
+                Icons.bar_chart_rounded,
+              ),
+              _buildAnimatedNavItem(
+                3,
+                'Profile',
+                Icons.person,
+                // PhosphorIcons.user,
+                // PhosphorIcons.userCircle,
+              ),
             ],
           ),
           Positioned(

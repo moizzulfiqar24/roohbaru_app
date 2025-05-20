@@ -1,10 +1,9 @@
-// lib/screens/search_screen.dart
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_state.dart';
@@ -14,7 +13,7 @@ import '../blocs/search_event.dart';
 import '../blocs/search_state.dart';
 import '../models/journal_entry.dart';
 import '../utils/mood_utils.dart';
-import '../widgets/custom_date_picker.dart'; // ← NEW import
+import '../widgets/custom_date_picker.dart';
 import 'entry_detail_screen.dart';
 
 class SearchScreen extends StatelessWidget {
@@ -96,134 +95,393 @@ class _SearchViewState extends State<_SearchView> {
                     alignment: Alignment.centerLeft,
                     child: GestureDetector(
                       onTap: () => Navigator.of(context).pop(),
-                      child: const Icon(Icons.arrow_back, size: 28),
-                    ),
-                  ),
-                ),
-
-                // Search field
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: TextField(
-                    controller: _searchController,
-                    onSubmitted: (_) => _executeSearch(),
-                    decoration: InputDecoration(
-                      hintText: 'Search entries...',
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.8),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
-                      ),
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: TextButton(
-                        onPressed: _executeSearch,
-                        child: const Text('Search'),
+                      child: const Icon(
+                        PhosphorIcons.arrowCircleLeft,
+                        size: 32,
+                        color: Colors.black,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
 
-                // Filters + Reset
+                // Redesigned search bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          // Mood dropdown
-                          Expanded(
-                            child: DropdownButtonFormField<String?>(
-                              value: state.mood,
-                              hint: const Text('All moods'),
-                              items: [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('All moods'),
-                                ),
-                                ..._SearchOptions.moods.map((m) =>
-                                    DropdownMenuItem(value: m, child: Text(m))),
-                              ],
-                              onChanged: (m) => context
-                                  .read<SearchBloc>()
-                                  .add(MoodFilterChanged(m)),
-                              decoration: InputDecoration(
-                                filled: true,
-                                fillColor: Colors.white.withOpacity(0.8),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 4),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Date picker using our custom widget
-                          GestureDetector(
-                            onTap: () async {
-                              final picked = await showCustomDatePicker(
-                                context: context,
-                                initialDate: state.date ?? DateTime.now(),
-                              );
-                              context
-                                  .read<SearchBloc>()
-                                  .add(DateFilterChanged(picked));
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.8),
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              child: Text(
-                                state.date != null
-                                    ? DateFormat('dd/MM/yyyy')
-                                        .format(state.date!)
-                                    : 'Date',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
-                          // Photos-only switch
-                          Expanded(
-                            child: Row(
-                              children: [
-                                const Text('Photos only'),
-                                Switch(
-                                  value: state.withPhotosOnly,
-                                  onChanged: (v) => context
-                                      .read<SearchBloc>()
-                                      .add(PhotosFilterToggled(v)),
-                                ),
-                              ],
-                            ),
-                          ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.white.withOpacity(0.95),
+                          Colors.white.withOpacity(0.85)
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      if (_hasAnyFilter) ...[
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: _resetAllFilters,
-                            child: const Text('Reset'),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            onSubmitted: (_) => _executeSearch(),
+                            style: const TextStyle(
+                              fontFamily: 'lufga-regular',
+                              fontSize: 16,
+                              color: Color(0xFF1A1A1A),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search entries...',
+                              hintStyle: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontFamily: 'lufga-regular',
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 16,
+                              ),
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: Colors.grey.shade600,
+                                size: 22,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          child: ElevatedButton(
+                            onPressed: _executeSearch,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1A1A1A),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              elevation: 0,
+                              textStyle: const TextStyle(
+                                fontFamily: 'lufga-semi-bold',
+                                fontSize: 14,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            child: const Text('Search'),
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Results list: only show once the user has searched or applied a filter
+                // Redesigned filters section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            // Mood dropdown
+
+                            // Expanded(
+                            //   child: DropdownButtonFormField<String?>(
+                            //     value: state.mood,
+                            //     hint: const Text('Mood'),
+                            //     items: [
+                            //       const DropdownMenuItem(
+                            //           value: null, child: Text('All moods')),
+                            //       ..._SearchOptions.moods.map((m) =>
+                            //           DropdownMenuItem(
+                            //               value: m, child: Text(m))),
+                            //     ],
+                            //     onChanged: (m) => context
+                            //         .read<SearchBloc>()
+                            //         .add(MoodFilterChanged(m)),
+                            //     decoration: InputDecoration(
+                            //       isDense: true,
+                            //       contentPadding:
+                            //           const EdgeInsets.fromLTRB(12, 14, 60, 14),
+                            //       border: OutlineInputBorder(
+                            //         borderRadius: BorderRadius.circular(16),
+                            //         borderSide: BorderSide.none,
+                            //       ),
+                            //       filled: true,
+                            //       fillColor: Colors.grey.shade100,
+                            //     ),
+                            //   ),
+                            // ),
+
+                            Flexible(
+                              flex: 11,
+                              child: DropdownButtonFormField<String?>(
+                                value: state.mood,
+                                hint: const Text('Mood'),
+                                items: [
+                                  const DropdownMenuItem(
+                                      value: null, child: Text('All moods')),
+                                  ..._SearchOptions.moods.map((m) =>
+                                      DropdownMenuItem(
+                                          value: m, child: Text(m))),
+                                ],
+                                onChanged: (m) => context
+                                    .read<SearchBloc>()
+                                    .add(MoodFilterChanged(m)),
+                                decoration: InputDecoration(
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 14),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.92),
+                                  // fillColor: Colors.red,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Date picker
+                            //     GestureDetector(
+                            //       onTap: () async {
+                            //         final picked = await showCustomDatePicker(
+                            //           context: context,
+                            //           initialDate: state.date ?? DateTime.now(),
+                            //         );
+                            //         context
+                            //             .read<SearchBloc>()
+                            //             .add(DateFilterChanged(picked));
+                            //       },
+                            //       child: Container(
+                            //         padding: const EdgeInsets.symmetric(
+                            //             horizontal: 16, vertical: 14),
+                            //         decoration: BoxDecoration(
+                            //           color: Colors.grey.shade100,
+                            //           borderRadius: BorderRadius.circular(16),
+                            //         ),
+                            //         child: Text(
+                            //           state.date != null
+                            //               ? DateFormat('dd/MM/yyyy')
+                            //                   .format(state.date!)
+                            //               : 'Date',
+                            //           style: const TextStyle(fontSize: 14),
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ],
+                            // ),
+                            Flexible(
+                              flex: 11,
+                              child: GestureDetector(
+                                onTap: () async {
+                                  final picked = await showCustomDatePicker(
+                                    context: context,
+                                    initialDate: state.date ?? DateTime.now(),
+                                  );
+                                  context
+                                      .read<SearchBloc>()
+                                      .add(DateFilterChanged(picked));
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 16),
+                                  decoration: BoxDecoration(
+                                    // color: Colors.white.withOpacity(0.8),
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    // boxShadow: [
+                                    //   BoxShadow(
+                                    //     color: Colors.black.withOpacity(0.06),
+                                    //     blurRadius: 8,
+                                    //     offset: const Offset(0, 3),
+                                    //   ),
+                                    // ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        // Icons.calendar_today_outlined,
+                                        PhosphorIcons.calendar,
+                                        size: 24,
+                                        color: Colors.black,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          state.date != null
+                                              ? DateFormat('dd/MM/yyyy')
+                                                  .format(state.date!)
+                                              : 'Select Date',
+                                          style: TextStyle(
+                                            // fontFamily: 'lufga-regular',
+                                            fontSize: 14,
+                                            color: state.date != null
+                                                ? const Color(0xFF1A1A1A)
+                                                : Colors.grey.shade500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Photos only switch
+
+                        // Padding(
+                        //   padding: const EdgeInsets.only(left: 12.0, right: 2),
+                        //   child: Row(
+                        //     children: [
+                        //       const Icon(Icons.photo_library_outlined,
+                        //           size: 20, color: Colors.black54),
+                        //       const SizedBox(width: 8),
+                        //       const Text(
+                        //         'Photos only',
+                        //         style: TextStyle(
+                        //             fontSize: 15, fontWeight: FontWeight.w500),
+                        //       ),
+                        //       const Spacer(),
+                        //       Switch(
+                        //         value: state.withPhotosOnly,
+                        //         onChanged: (v) => context
+                        //             .read<SearchBloc>()
+                        //             .add(PhotosFilterToggled(v)),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
+
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 8, 0),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.photo_library_outlined,
+                                size: 20,
+                                color: Colors.black,
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Photos only',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () {
+                                  final newVal = !state.withPhotosOnly;
+                                  context
+                                      .read<SearchBloc>()
+                                      .add(PhotosFilterToggled(newVal));
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: 48,
+                                  height: 28,
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: state.withPhotosOnly
+                                        ? Colors.black87
+                                        : Colors.grey.shade300,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Align(
+                                    alignment: state.withPhotosOnly
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                    child: Container(
+                                      width: 20,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        if (_hasAnyFilter)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            // child: TextButton(
+                            //   onPressed: _resetAllFilters,
+                            //   child: const Text(
+                            //     'Reset filters',
+                            //     style: TextStyle(
+                            //       fontWeight: FontWeight.w500,
+                            //       color: Colors.black87,
+                            //     ),
+                            //   ),
+                            // ),
+                            child: TextButton(
+                              onPressed: _resetAllFilters,
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF2E2A1F),
+                                backgroundColor: Colors.white.withOpacity(0.92),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontFamily: 'lufga-semi-bold',
+                                  fontSize: 14,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              child: const Text('Reset Filters'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Results
                 Expanded(
                   child: !_hasAnyFilter
                       ? const SizedBox.shrink()
@@ -256,8 +514,10 @@ class _SearchViewState extends State<_SearchView> {
         .toList();
 
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
         child: Row(
