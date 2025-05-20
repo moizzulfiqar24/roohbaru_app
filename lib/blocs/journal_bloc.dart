@@ -3,12 +3,12 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data'; // ← added
+import 'dart:typed_data';
 
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:image/image.dart' as img; // ← added
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -19,7 +19,18 @@ import 'journal_state.dart';
 
 class JournalBloc extends Bloc<JournalEvent, JournalState> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AIService _aiService = AIService();
+  
+  // Pass in your desired personalities here:
+  final AIService _aiService = AIService(
+    calm: false,
+    cheerful: false,
+    empathetic: true,
+    gentle: false,
+    supportive: true,
+    humorous: false,
+    mindful: false,
+    optimistic: false,
+  );
 
   /// Firestore only allows <1 MB per string field.
   static const int _maxFirestoreBase64Size = 1024 * 1024;
@@ -83,13 +94,66 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
     }
   }
 
+  // Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
+  //   try {
+  //     final aiResult = await _aiService.analyzeEntry(event.entry.content);
+  //     var enriched = event.entry.copyWith(
+  //       sentiment: aiResult.sentiment,
+  //       mood: aiResult.mood,
+  //       suggestions: [aiResult.song, aiResult.movie],
+  //     );
+  //     enriched = await _prepareEntryForFirestore(enriched);
+  //     await _firestore
+  //         .collection('entries')
+  //         .doc(enriched.id)
+  //         .set(enriched.toMap());
+  //   } catch (e, st) {
+  //     log('AddEntry error: $e\n$st');
+  //     emit(JournalError('Failed to add entry: ${e.toString()}'));
+  //   }
+  // }
+
+  // Future<void> _onUpdateEntry(
+  //     UpdateEntry event, Emitter<JournalState> emit) async {
+  //   emit(JournalLoading());
+  //   try {
+  //     final docRef = _firestore.collection('entries').doc(event.entry.id);
+  //     final existingDoc = await docRef.get();
+  //     if (!existingDoc.exists) {
+  //       emit(JournalError('Entry not found for update.'));
+  //       return;
+  //     }
+
+  //     final previous = JournalEntry.fromFirestore(existingDoc);
+  //     JournalEntry updatedEntry;
+
+  //     if (event.entry.content.trim() != previous.content.trim()) {
+  //       final aiResult = await _aiService.analyzeEntry(event.entry.content);
+  //       updatedEntry = event.entry.copyWith(
+  //         sentiment: aiResult.sentiment,
+  //         mood: aiResult.mood,
+  //         suggestions: [aiResult.song, aiResult.movie],
+  //       );
+  //     } else {
+  //       updatedEntry = event.entry;
+  //     }
+
+  //     updatedEntry = await _prepareEntryForFirestore(updatedEntry);
+  //     await docRef.update(updatedEntry.toMap());
+  //   } catch (e, st) {
+  //     log('UpdateEntry error: $e\n$st');
+  //     emit(JournalError('Failed to update entry: ${e.toString()}'));
+  //   }
+  // }
+
   Future<void> _onAddEntry(AddEntry event, Emitter<JournalState> emit) async {
     try {
       final aiResult = await _aiService.analyzeEntry(event.entry.content);
       var enriched = event.entry.copyWith(
         sentiment: aiResult.sentiment,
         mood: aiResult.mood,
-        suggestions: [aiResult.song, aiResult.movie],
+        suggestions: aiResult.suggestions,
+        analysis: aiResult.analysis, // ← store analysis
       );
       enriched = await _prepareEntryForFirestore(enriched);
       await _firestore
@@ -121,7 +185,8 @@ class JournalBloc extends Bloc<JournalEvent, JournalState> {
         updatedEntry = event.entry.copyWith(
           sentiment: aiResult.sentiment,
           mood: aiResult.mood,
-          suggestions: [aiResult.song, aiResult.movie],
+          suggestions: aiResult.suggestions,
+          analysis: aiResult.analysis, // ← update analysis
         );
       } else {
         updatedEntry = event.entry;

@@ -5,7 +5,7 @@ class Attachment {
   final String url;
   final String name;
   final String type; // e.g., 'image', 'pdf', 'doc'
-  final String? base64Data; // new: holds the image’s Base64 if present
+  final String? base64Data; // holds the image’s Base64 if present
 
   Attachment({
     required this.url,
@@ -19,7 +19,7 @@ class Attachment {
       url: map['url'] as String,
       name: map['name'] as String,
       type: map['type'] as String,
-      base64Data: map['data'] as String?, // read back if stored
+      base64Data: map['data'] as String?,
     );
   }
 
@@ -30,7 +30,7 @@ class Attachment {
       'type': type,
     };
     if (base64Data != null) {
-      m['data'] = base64Data; // only include if we have it
+      m['data'] = base64Data;
     }
     return m;
   }
@@ -48,6 +48,7 @@ class JournalEntry {
   final String sentiment;
   final String mood;
   final List<String> suggestions;
+  final String analysis; // ← New field
 
   const JournalEntry({
     required this.id,
@@ -59,6 +60,7 @@ class JournalEntry {
     this.sentiment = '',
     this.mood = '',
     this.suggestions = const [],
+    this.analysis = '', // ← default
   });
 
   factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
@@ -76,6 +78,7 @@ class JournalEntry {
       mood: data['mood'] as String? ?? '',
       suggestions:
           List<String>.from(data['suggestions'] as List<dynamic>? ?? []),
+      analysis: data['analysis'] as String? ?? '', // ← read from Firestore
     );
   }
 
@@ -89,6 +92,7 @@ class JournalEntry {
       'sentiment': sentiment,
       'mood': mood,
       'suggestions': suggestions,
+      'analysis': analysis, // ← write to Firestore
     };
   }
 
@@ -99,6 +103,7 @@ class JournalEntry {
     String? sentiment,
     String? mood,
     List<String>? suggestions,
+    String? analysis, // ← allow update
   }) {
     return JournalEntry(
       id: id,
@@ -110,6 +115,7 @@ class JournalEntry {
       sentiment: sentiment ?? this.sentiment,
       mood: mood ?? this.mood,
       suggestions: suggestions ?? this.suggestions,
+      analysis: analysis ?? this.analysis,
     );
   }
 }

@@ -1,5 +1,3 @@
-// lib/screens/entry_detail_screen.dart
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -47,7 +45,6 @@ class EntryDetailScreen extends StatelessWidget {
         if (state is JournalLoaded) {
           final idx = state.entries.indexWhere((e) => e.id == entryId);
           if (idx == -1) {
-            // still loading entry
             return Scaffold(
               backgroundColor: defaultMoodBackground,
               body: const Center(child: CircularProgressIndicator()),
@@ -64,17 +61,14 @@ class EntryDetailScreen extends StatelessWidget {
             backgroundColor: bgColor,
             body: Stack(
               children: [
-                // Background image
                 Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/bg2.png',
-                    fit: BoxFit.cover,
-                  ),
+                  child:
+                      Image.asset('assets/images/bg2.png', fit: BoxFit.cover),
                 ),
                 SafeArea(
                   child: Column(
                     children: [
-                      // Top bar: back, spacer, share, edit, delete
+                      // Top bar (back, edit, delete) – unchanged
                       Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
@@ -83,21 +77,12 @@ class EntryDetailScreen extends StatelessWidget {
                             GestureDetector(
                               onTap: () => Navigator.of(context).pop(),
                               child: const Icon(
-                                // Icons.arrow_back,
                                 PhosphorIcons.arrowCircleLeft,
                                 size: 32,
                                 color: Colors.black,
                               ),
                             ),
                             const Spacer(),
-                            // GestureDetector(
-                            //   onTap: () {
-                            //     // TODO: share logic
-                            //   },
-                            //   child: const Icon(PhosphorIcons.shareNetwork,
-                            //       size: 28, color: Colors.black),
-                            // ),
-                            // const SizedBox(width: 16),
                             GestureDetector(
                               onTap: () {
                                 Navigator.push(
@@ -108,8 +93,11 @@ class EntryDetailScreen extends StatelessWidget {
                                   ),
                                 );
                               },
-                              child: const Icon(PhosphorIcons.pencilSimple,
-                                  size: 28, color: Colors.black),
+                              child: const Icon(
+                                PhosphorIcons.pencilSimple,
+                                size: 28,
+                                color: Colors.black,
+                              ),
                             ),
                             const SizedBox(width: 16),
                             GestureDetector(
@@ -141,8 +129,11 @@ class EntryDetailScreen extends StatelessWidget {
                                   Navigator.pop(context);
                                 }
                               },
-                              child: const Icon(PhosphorIcons.trash,
-                                  size: 28, color: Colors.black),
+                              child: const Icon(
+                                PhosphorIcons.trash,
+                                size: 28,
+                                color: Colors.black,
+                              ),
                             ),
                           ],
                         ),
@@ -155,27 +146,23 @@ class EntryDetailScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Title
+                              // Title, date, mood selector, body, images – unchanged
                               Text(
                                 entry.title.toLowerCase(),
                                 style: const TextStyle(
                                   fontFamily: 'lufga-bold-italic',
-                                  // color: Color(0xFF473623),
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              // Date
                               Text(
                                 dateStr,
-                                style: TextStyle(
-                                  // color: Colors.grey[600],
+                                style: const TextStyle(
                                   color: Color(0xFF473623),
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              // Mood selector: icon then dropdown container
                               Row(
                                 children: [
                                   SvgPicture.asset(
@@ -197,28 +184,19 @@ class EntryDetailScreen extends StatelessWidget {
                                             ? entry.mood
                                             : null,
                                         icon: const Icon(
-                                          Icons.keyboard_arrow_down,
-                                          // PhosphorIcons.caretDown,
-                                        ),
+                                            Icons.keyboard_arrow_down),
                                         dropdownColor: Colors.white,
                                         style: const TextStyle(
                                           fontFamily: 'lufga-light',
                                           fontSize: 16,
                                           color: Colors.black,
                                         ),
-                                        items: moodOptions.map((m) {
-                                          return DropdownMenuItem<String>(
-                                            value: m,
-                                            child: Text(
-                                              m,
-                                              style: const TextStyle(
-                                                fontFamily: 'lufga-light',
-                                                fontSize: 16,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                          );
-                                        }).toList(),
+                                        items: moodOptions
+                                            .map((m) => DropdownMenuItem(
+                                                  value: m,
+                                                  child: Text(m),
+                                                ))
+                                            .toList(),
                                         onChanged: (newMood) {
                                           if (newMood != null) {
                                             final updated =
@@ -234,14 +212,12 @@ class EntryDetailScreen extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              // Body
                               Text(
                                 entry.content,
                                 style: const TextStyle(
                                     fontSize: 18, fontFamily: 'lufga-regular'),
                               ),
                               const SizedBox(height: 16),
-                              // Image attachments preview
                               if (entry.attachments.any((a) =>
                                   a.type == 'image' &&
                                   File(a.url).existsSync())) ...[
@@ -276,6 +252,7 @@ class EntryDetailScreen extends StatelessWidget {
                               ],
                               const Divider(color: Colors.black),
                               const SizedBox(height: 16),
+
                               // Suggestions
                               const Text('Suggestions',
                                   style: TextStyle(
@@ -284,11 +261,7 @@ class EntryDetailScreen extends StatelessWidget {
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  const Icon(
-                                    // Icons.music_note,
-                                    PhosphorIcons.musicNote,
-                                    size: 20,
-                                  ),
+                                  const Icon(PhosphorIcons.musicNote, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -303,11 +276,7 @@ class EntryDetailScreen extends StatelessWidget {
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  Icon(
-                                    // Icons.movie,
-                                    PhosphorIcons.filmStrip,
-                                    size: 20,
-                                  ),
+                                  const Icon(PhosphorIcons.filmStrip, size: 20),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -319,6 +288,19 @@ class EntryDetailScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
+
+                              // ⬇️ NEW: AI Analysis
+                              const SizedBox(height: 12),
+                              const Text('AI Analysis',
+                                  style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500)),
+                              const SizedBox(height: 4),
+                              Text(
+                                entry.analysis,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+
                               const SizedBox(height: 24),
                             ],
                           ),

@@ -227,6 +227,57 @@ class JournalEntry {
 
 ]
 
+roohbaru_app/lib/blocs/search_event.dart: [
+import 'package:equatable/equatable.dart';
+import '../models/journal_entry.dart';
+
+abstract class SearchEvent extends Equatable {
+  @override
+  List<Object?> get props => [];
+}
+
+/// Fired whenever JournalBloc emits a fresh list of entries.
+class EntriesUpdated extends SearchEvent {
+  final List<JournalEntry> entries;
+  EntriesUpdated(this.entries);
+  @override
+  List<Object?> get props => [entries];
+}
+
+/// Fired as the user types into the search box.
+class QueryChanged extends SearchEvent {
+  final String query;
+  QueryChanged(this.query);
+  @override
+  List<Object?> get props => [query];
+}
+
+/// Fired when the user selects a mood filter (or clears it).
+class MoodFilterChanged extends SearchEvent {
+  final String? mood;
+  MoodFilterChanged(this.mood);
+  @override
+  List<Object?> get props => [mood];
+}
+
+/// Fired when the user picks (or clears) a date.
+class DateFilterChanged extends SearchEvent {
+  final DateTime? date;
+  DateFilterChanged(this.date);
+  @override
+  List<Object?> get props => [date];
+}
+
+/// Fired when the user toggles “Photos only”.
+class PhotosFilterToggled extends SearchEvent {
+  final bool withPhotosOnly;
+  PhotosFilterToggled(this.withPhotosOnly);
+  @override
+  List<Object?> get props => [withPhotosOnly];
+}
+
+]
+
 roohbaru_app/lib/blocs/journal_event.dart: [
 import 'package:equatable/equatable.dart';
 import '../models/journal_entry.dart';
@@ -502,6 +553,229 @@ class JournalError extends JournalState {
 
   @override
   List<Object?> get props => [message];
+}
+
+]
+
+roohbaru_app/lib/blocs/search_state.dart: [
+import 'package:equatable/equatable.dart';
+import '../models/journal_entry.dart';
+
+class SearchState extends Equatable {
+  final List<JournalEntry> allEntries;
+  final List<JournalEntry> filteredEntries;
+  final String query;
+  final String? mood;
+  final DateTime? date;
+  final bool withPhotosOnly;
+
+  const SearchState({
+    required this.allEntries,
+    required this.filteredEntries,
+    required this.query,
+    required this.mood,
+    required this.date,
+    required this.withPhotosOnly,
+  });
+
+  factory SearchState.initial() {
+    return const SearchState(
+      allEntries: [],
+      filteredEntries: [],
+      query: '',
+      mood: null,
+      date: null,
+      withPhotosOnly: false,
+    );
+  }
+
+  SearchState copyWith({
+    List<JournalEntry>? allEntries,
+    List<JournalEntry>? filteredEntries,
+    String? query,
+    String? mood,
+    DateTime? date,
+    bool? withPhotosOnly,
+  }) {
+    return SearchState(
+      allEntries: allEntries ?? this.allEntries,
+      filteredEntries: filteredEntries ?? this.filteredEntries,
+      query: query ?? this.query,
+      mood: mood ?? this.mood,
+      date: date ?? this.date,
+      withPhotosOnly: withPhotosOnly ?? this.withPhotosOnly,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        allEntries,
+        filteredEntries,
+        query,
+        mood,
+        date,
+        withPhotosOnly,
+      ];
+}
+
+]
+
+roohbaru_app/lib/blocs/search_bloc.dart: [
+import 'dart:async';
+import 'package:bloc/bloc.dart';
+
+import '../models/journal_entry.dart';
+import 'journal_bloc.dart';
+import 'journal_state.dart';
+import 'search_event.dart';
+import 'search_state.dart';
+
+class SearchBloc extends Bloc<SearchEvent, SearchState> {
+  final JournalBloc journalBloc;
+  late final StreamSubscription journalSubscription;
+
+  SearchBloc({required this.journalBloc}) : super(SearchState.initial()) {
+    // 1. Register all handlers first
+    on<EntriesUpdated>(_onEntriesUpdated);
+    on<QueryChanged>(_onQueryChanged);
+    on<MoodFilterChanged>(_onMoodFilterChanged);
+    on<DateFilterChanged>(_onDateFilterChanged);
+    on<PhotosFilterToggled>(_onPhotosFilterToggled);
+
+    // 2. Seed initial entries if already loaded
+    if (journalBloc.state is JournalLoaded) {
+      final entries = (journalBloc.state as JournalLoaded).entries;
+      add(EntriesUpdated(entries));
+    }
+
+    // 3. Subscribe to JournalBloc for future updates
+    journalSubscription = journalBloc.stream.listen((js) {
+      if (js is JournalLoaded) {
+        add(EntriesUpdated(js.entries));
+      }
+    });
+  }
+
+  void _onEntriesUpdated(EntriesUpdated event, Emitter<SearchState> emit) {
+    final filtered = _applyFilters(
+      event.entries,
+      state.query,
+      state.mood,
+      state.date,
+      state.withPhotosOnly,
+    );
+    emit(state.copyWith(
+      allEntries: event.entries,
+      filteredEntries: filtered,
+    ));
+  }
+
+  void _onQueryChanged(QueryChanged event, Emitter<SearchState> emit) {
+    final filtered = _applyFilters(
+      state.allEntries,
+      event.query,
+      state.mood,
+      state.date,
+      state.withPhotosOnly,
+    );
+    emit(state.copyWith(
+      query: event.query,
+      filteredEntries: filtered,
+    ));
+  }
+
+  void _onMoodFilterChanged(
+      MoodFilterChanged event, Emitter<SearchState> emit) {
+    final filtered = _applyFilters(
+      state.allEntries,
+      state.query,
+      event.mood,
+      state.date,
+      state.withPhotosOnly,
+    );
+    // Use full constructor so `mood: null` actually clears it
+    emit(SearchState(
+      allEntries: state.allEntries,
+      filteredEntries: filtered,
+      query: state.query,
+      mood: event.mood,
+      date: state.date,
+      withPhotosOnly: state.withPhotosOnly,
+    ));
+  }
+
+  void _onDateFilterChanged(
+      DateFilterChanged event, Emitter<SearchState> emit) {
+    final filtered = _applyFilters(
+      state.allEntries,
+      state.query,
+      state.mood,
+      event.date,
+      state.withPhotosOnly,
+    );
+    emit(SearchState(
+      allEntries: state.allEntries,
+      filteredEntries: filtered,
+      query: state.query,
+      mood: state.mood,
+      date: event.date,
+      withPhotosOnly: state.withPhotosOnly,
+    ));
+  }
+
+  void _onPhotosFilterToggled(
+      PhotosFilterToggled event, Emitter<SearchState> emit) {
+    final filtered = _applyFilters(
+      state.allEntries,
+      state.query,
+      state.mood,
+      state.date,
+      event.withPhotosOnly,
+    );
+    emit(state.copyWith(
+      withPhotosOnly: event.withPhotosOnly,
+      filteredEntries: filtered,
+    ));
+  }
+
+  List<JournalEntry> _applyFilters(
+    List<JournalEntry> entries,
+    String query,
+    String? mood,
+    DateTime? date,
+    bool withPhotosOnly,
+  ) {
+    return entries.where((entry) {
+      // Text search
+      if (query.isNotEmpty) {
+        final q = query.toLowerCase();
+        if (!entry.title.toLowerCase().contains(q) &&
+            !entry.content.toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      // Mood filter
+      if (mood != null && entry.mood != mood) return false;
+      // Date filter
+      if (date != null) {
+        final eD = DateTime(
+            entry.timestamp.year, entry.timestamp.month, entry.timestamp.day);
+        final fD = DateTime(date.year, date.month, date.day);
+        if (eD != fD) return false;
+      }
+      // Photos-only
+      if (withPhotosOnly && !entry.attachments.any((a) => a.type == 'image')) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  @override
+  Future<void> close() {
+    journalSubscription.cancel();
+    return super.close();
+  }
 }
 
 ]
@@ -2231,6 +2505,388 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
 
 ]
 
+roohbaru_app/lib/screens/search_screen.dart: [
+// lib/screens/search_screen.dart
+
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_state.dart';
+import '../blocs/journal_bloc.dart';
+import '../blocs/search_bloc.dart';
+import '../blocs/search_event.dart';
+import '../blocs/search_state.dart';
+import '../models/journal_entry.dart';
+import '../utils/mood_utils.dart';
+import '../widgets/custom_date_picker.dart'; // ← NEW import
+import 'entry_detail_screen.dart';
+
+class SearchScreen extends StatelessWidget {
+  const SearchScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final journalBloc = context.read<JournalBloc>();
+    return BlocProvider<SearchBloc>(
+      create: (_) => SearchBloc(journalBloc: journalBloc),
+      child: const _SearchView(),
+    );
+  }
+}
+
+class _SearchView extends StatefulWidget {
+  const _SearchView({Key? key}) : super(key: key);
+
+  @override
+  State<_SearchView> createState() => _SearchViewState();
+}
+
+class _SearchViewState extends State<_SearchView> {
+  final TextEditingController _searchController = TextEditingController();
+
+  bool get _hasAnyFilter {
+    final s = context.read<SearchBloc>().state;
+    return s.query.isNotEmpty ||
+        s.mood != null ||
+        s.date != null ||
+        s.withPhotosOnly;
+  }
+
+  void _executeSearch() {
+    context.read<SearchBloc>().add(QueryChanged(_searchController.text.trim()));
+  }
+
+  void _resetAllFilters() {
+    _searchController.clear();
+    final bloc = context.read<SearchBloc>();
+    bloc.add(QueryChanged(''));
+    bloc.add(MoodFilterChanged(null));
+    bloc.add(DateFilterChanged(null));
+    bloc.add(PhotosFilterToggled(false));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthBloc>().state;
+    if (auth is! AuthAuthenticated) {
+      return const Scaffold(
+        body: Center(child: Text('Not authenticated')),
+      );
+    }
+
+    final state = context.watch<SearchBloc>().state;
+
+    return Scaffold(
+      backgroundColor: defaultMoodBackground,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset('assets/images/bg2.png', fit: BoxFit.cover),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Back button
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: const Icon(Icons.arrow_back, size: 28),
+                    ),
+                  ),
+                ),
+
+                // Search field
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: TextField(
+                    controller: _searchController,
+                    onSubmitted: (_) => _executeSearch(),
+                    decoration: InputDecoration(
+                      hintText: 'Search entries...',
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.8),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: TextButton(
+                        onPressed: _executeSearch,
+                        child: const Text('Search'),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Filters + Reset
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          // Mood dropdown
+                          Expanded(
+                            child: DropdownButtonFormField<String?>(
+                              value: state.mood,
+                              hint: const Text('All moods'),
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('All moods'),
+                                ),
+                                ..._SearchOptions.moods.map((m) =>
+                                    DropdownMenuItem(value: m, child: Text(m))),
+                              ],
+                              onChanged: (m) => context
+                                  .read<SearchBloc>()
+                                  .add(MoodFilterChanged(m)),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 4),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Date picker using our custom widget
+                          GestureDetector(
+                            onTap: () async {
+                              final picked = await showCustomDatePicker(
+                                context: context,
+                                initialDate: state.date ?? DateTime.now(),
+                              );
+                              context
+                                  .read<SearchBloc>()
+                                  .add(DateFilterChanged(picked));
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Text(
+                                state.date != null
+                                    ? DateFormat('dd/MM/yyyy')
+                                        .format(state.date!)
+                                    : 'Date',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Photos-only switch
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Text('Photos only'),
+                                Switch(
+                                  value: state.withPhotosOnly,
+                                  onChanged: (v) => context
+                                      .read<SearchBloc>()
+                                      .add(PhotosFilterToggled(v)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_hasAnyFilter) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _resetAllFilters,
+                            child: const Text('Reset'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Results list: only show once the user has searched or applied a filter
+                Expanded(
+                  child: !_hasAnyFilter
+                      ? const SizedBox.shrink()
+                      : state.filteredEntries.isEmpty
+                          ? const Center(child: Text('No entries found.'))
+                          : ListView.builder(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: state.filteredEntries.length,
+                              itemBuilder: (ctx, i) {
+                                final e = state.filteredEntries[i];
+                                return _buildEntryItem(e);
+                              },
+                            ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntryItem(JournalEntry e) {
+    final dow = DateFormat('EEE').format(e.timestamp).toLowerCase();
+    final dayNum = DateFormat('d').format(e.timestamp);
+    final imgs = e.attachments
+        .where((a) => a.type == 'image' && File(a.url).existsSync())
+        .map((a) => a.url)
+        .toList();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => EntryDetailScreen(entryId: e.id))),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 13),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 55,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    dow,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontFamily: 'lufga-semi-bold',
+                      color: Color(0xFF473623),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dayNum,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontFamily: 'lufga-regular',
+                      color: Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    e.title.toLowerCase(),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontFamily: 'lufga-semi-bold-italic',
+                      color: Color(0xFF473623),
+                    ),
+                  ),
+                  Text(
+                    _truncateWords(e.content, 30).toLowerCase(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.4,
+                      fontFamily: 'lufga-regular',
+                    ),
+                  ),
+                  if (imgs.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: imgs.take(2).map((path) {
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(
+                                File(path),
+                                height: 120,
+                                fit: BoxFit.cover,
+                                errorBuilder: (ctx, _, __) => Container(
+                                  height: 120,
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(Icons.broken_image),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _truncateWords(String text, int limit) {
+    final words = text.split(RegExp(r'\s+'));
+    if (words.length <= limit) return text;
+    return words.take(limit).join(' ') + '...';
+  }
+}
+
+class _SearchOptions {
+  static const List<String> moods = [
+    'Happy',
+    'Excited',
+    'Calm',
+    'Grateful',
+    'Loving',
+    'Confident',
+    'Sad',
+    'Angry',
+    'Anxious',
+    'Lonely',
+    'Guilty',
+    'Jealous',
+    'Confused',
+    'Surprised',
+    'Bored',
+    'Restless',
+    'Inspired',
+    'Distracted',
+  ];
+}
+
+]
+
 roohbaru_app/lib/screens/home_screen.dart: [
 // lib/screens/home_screen.dart
 
@@ -2240,6 +2896,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:roohbaru_app/screens/search_screen.dart';
 
 import '../blocs/auth_bloc.dart';
 import '../blocs/auth_event.dart';
@@ -2249,11 +2906,12 @@ import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
-import '../utils/mood_utils.dart'; // ← NEW
+import '../utils/mood_utils.dart';
 import '../widgets/navbar.dart';
 import '../widgets/header_row.dart';
 import '../widgets/greeting_section.dart';
 import '../widgets/quote_section.dart';
+import '../widgets/custom_date_picker.dart'; // ← NEW import
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
 import 'entry_detail_screen.dart';
@@ -2269,10 +2927,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
   int _selectedIndex = 0;
+  DateTime? _selectedDate; // ← track the picked date
 
-  // static const _defaultBg = Color(0xFFFFFAF7);
-  static const _defaultBg =
-      defaultMoodBackground; // ← now comes from util if you prefer
+  static const _defaultBg = defaultMoodBackground;
 
   @override
   void initState() {
@@ -2294,6 +2951,24 @@ class _HomeScreenState extends State<HomeScreen> {
     return words.take(limit).join(' ') + '...';
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showCustomDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = DateTime(picked.year, picked.month, picked.day);
+      });
+    }
+  }
+
+  void _resetDate() {
+    setState(() {
+      _selectedDate = null;
+    });
+  }
+
   void _onAddPressed() {
     Navigator.push(
       context,
@@ -2304,7 +2979,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemSelected(int index) {
-    setState(() => _selectedIndex = index);
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SearchScreen()),
+      );
+    } else {
+      setState(() => _selectedIndex = index);
+    }
   }
 
   @override
@@ -2328,7 +3010,6 @@ class _HomeScreenState extends State<HomeScreen> {
           if (journalState is JournalLoaded) {
             all = journalState.entries;
             if (all.isNotEmpty) {
-              // ← USE the util map now
               bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
             }
           }
@@ -2351,12 +3032,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // ← only this row is updated to toggle calendar/reset
                           HeaderRow(
-                            onCalendarPressed: () {},
+                            onCalendarPressed: _pickDate,
+                            isDateSelected: _selectedDate != null,
+                            onReset: _resetDate,
                             onLogoutPressed: () {
                               context.read<AuthBloc>().add(SignOutRequested());
                             },
                           ),
+
                           GreetingSection(greeting: _greeting),
                           const SizedBox(height: 24),
                           QuoteSection(quoteFuture: _quoteFuture),
@@ -2391,6 +3076,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> _buildMonthlySections(List<JournalEntry> all) {
+    // If a date is selected, filter down and show only that day's entries
+    if (_selectedDate != null) {
+      final filtered = all.where((e) {
+        final d = e.timestamp;
+        return d.year == _selectedDate!.year &&
+            d.month == _selectedDate!.month &&
+            d.day == _selectedDate!.day;
+      }).toList();
+
+      final label =
+          DateFormat('d MMM yyyy').format(_selectedDate!).toLowerCase();
+
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10),
+          child: Row(
+            children: [
+              Text(
+                label, // header now shows the picked date
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontFamily: 'lufga-bold',
+                  color: Color(0xFF473623),
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: _onAddPressed,
+                child: const Text(
+                  '+ add new',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (var e in filtered) _buildEntryItem(e),
+      ];
+    }
+
+    // Otherwise original month‐grouping
     final Map<DateTime, List<JournalEntry>> byMonth = {};
     for (var e in all) {
       final key = DateTime(e.timestamp.year, e.timestamp.month);
@@ -2410,7 +3140,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               Text(
-                label.toLowerCase(),
+                label.toLowerCase(), // original month label
                 style: const TextStyle(
                   fontSize: 20,
                   fontFamily: 'lufga-bold',
@@ -2419,12 +3149,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NewEntryScreen(userId: widget.user.uid),
-                  ),
-                ),
+                onTap: _onAddPressed,
                 child: const Text(
                   '+ add new',
                   style: TextStyle(
@@ -2438,12 +3163,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       );
-
       for (var e in entries) {
         sections.add(_buildEntryItem(e));
       }
     }
-
     return sections;
   }
 
@@ -2529,7 +3252,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 File(path),
                                 height: 120,
                                 fit: BoxFit.cover,
-                                errorBuilder: (ctx, err, stack) => Container(
+                                errorBuilder: (ctx, _, __) => Container(
                                   height: 120,
                                   color: Colors.grey.shade200,
                                   child: const Icon(Icons.broken_image),
@@ -2923,6 +3646,57 @@ Only return strict JSON. No commentary or explanations.
     }
     return raw.substring(start, end + 1);
   }
+}
+
+]
+
+roohbaru_app/lib/widgets/custom_date_picker.dart: [
+// lib/widgets/custom_date_picker.dart
+
+import 'package:flutter/material.dart';
+
+/// Shows a calendar dialog styled exactly like your mockup,
+/// but only allowing selection up to today (no future dates).
+/// Usage:
+/// ```dart
+/// final picked = await showCustomDatePicker(
+///   context: context,
+///   initialDate: DateTime.now(),
+/// );
+/// ```
+Future<DateTime?> showCustomDatePicker({
+  required BuildContext context,
+  required DateTime initialDate,
+  DateTime? firstDate,
+  // Force lastDate to today if not provided
+  DateTime? lastDate,
+}) {
+  final today = DateTime.now();
+  return showDatePicker(
+    context: context,
+    initialDate: initialDate.isAfter(today) ? today : initialDate,
+    firstDate: firstDate ?? DateTime(2000),
+    lastDate: lastDate ?? today,
+    builder: (ctx, child) {
+      return Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: const Color(0xFFF2D96C), // header bg & selected day
+            onPrimary: Colors.black, // header text & selected text
+            surface: Colors.white, // calendar surface
+            onSurface: Colors.black87, // dates & weekdays
+          ),
+          dialogBackgroundColor: const Color(0xFFF8EED5), // overall bg
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF4E4039), // OK/Cancel
+            ),
+          ),
+        ),
+        child: child!,
+      );
+    },
+  );
 }
 
 ]
@@ -3329,33 +4103,119 @@ class SecondaryButton extends StatelessWidget {
 ]
 
 roohbaru_app/lib/widgets/header_row.dart: [
+// // lib/widgets/header_row.dart
+
+// import 'package:flutter/material.dart';
+
+// class HeaderRow extends StatelessWidget {
+//   final VoidCallback onCalendarPressed;
+//   final VoidCallback onLogoutPressed;
+
+//   const HeaderRow({
+//     Key? key,
+//     required this.onCalendarPressed,
+//     required this.onLogoutPressed,
+//   }) : super(key: key);
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Row(
+//       children: [
+//         IconButton(
+//           icon: const Icon(
+//             Icons.calendar_month_rounded,
+//             size: 30,
+//             color: Colors.black,
+//           ),
+//           onPressed: onCalendarPressed,
+//         ),
+//         const Spacer(),
+//         IconButton(
+//           icon: const Icon(
+//             Icons.logout,
+//             size: 25,
+//             color: Colors.black,
+//           ),
+//           onPressed: onLogoutPressed,
+//         ),
+//       ],
+//     );
+//   }
+// }
+
+// lib/widgets/header_row.dart
+
 // lib/widgets/header_row.dart
 
 import 'package:flutter/material.dart';
 
 class HeaderRow extends StatelessWidget {
+  /// Called when the calendar icon is tapped (only when [isDateSelected] is false).
   final VoidCallback onCalendarPressed;
+
+  /// Called when the logout icon is tapped.
   final VoidCallback onLogoutPressed;
+
+  /// If true, show the Reset pill instead of the calendar icon.
+  final bool isDateSelected;
+
+  /// Called when the Reset pill is tapped (only when [isDateSelected] is true).
+  final VoidCallback? onReset;
 
   const HeaderRow({
     Key? key,
     required this.onCalendarPressed,
     required this.onLogoutPressed,
+    this.isDateSelected = false,
+    this.onReset,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        IconButton(
-          icon: const Icon(
-            Icons.calendar_month_rounded,
-            size: 30,
-            color: Colors.black,
-          ),
-          onPressed: onCalendarPressed,
+        // Animated switch between calendar icon and Reset pill
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          switchInCurve: Curves.easeIn,
+          switchOutCurve: Curves.easeOut,
+          transitionBuilder: (child, animation) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          child: isDateSelected
+              ? GestureDetector(
+                  key: const ValueKey('reset'),
+                  onTap: onReset,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: const Text(
+                      'Reset',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  key: const ValueKey('calendar'),
+                  icon: const Icon(
+                    Icons.calendar_month_rounded,
+                    size: 30,
+                    color: Colors.black,
+                  ),
+                  onPressed: onCalendarPressed,
+                ),
         ),
+
         const Spacer(),
+
         IconButton(
           icon: const Icon(
             Icons.logout,
