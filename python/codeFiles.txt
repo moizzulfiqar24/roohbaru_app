@@ -2946,6 +2946,74 @@ class _SignupScreenState extends State<SignupScreen> {
 
 ]
 
+roohbaru_app/lib/screens/profile_screen.dart: [
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../blocs/auth_bloc.dart';
+import '../blocs/auth_state.dart';
+import '../utils/mood_utils.dart';
+import '../widgets/profile/profile_header.dart';
+import '../widgets/profile/avatar_animation.dart';
+import '../widgets/profile/profile_info.dart';
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({Key? key}) : super(key: key);
+
+  @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _showInfo = false;
+
+  void _onAnimationComplete() {
+    setState(() {
+      _showInfo = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: defaultMoodBackground,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: Image.asset('assets/images/bg2.png', fit: BoxFit.cover),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                const ProfileHeader(),
+                const SizedBox(height: 40),
+                const SizedBox(height: 24),
+                AvatarAnimation(onCompleted: _onAnimationComplete),
+                const SizedBox(height: 24),
+                if (_showInfo)
+                  BlocBuilder<AuthBloc, AuthState>(
+                    builder: (context, state) {
+                      if (state is AuthAuthenticated) {
+                        final user = state.user;
+                        return ProfileInfo(
+                          name: user.displayName ?? '',
+                          email: user.email ?? '',
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+]
+
 roohbaru_app/lib/screens/insights_screen.dart: [
 // lib/screens/insights_screen.dart
 
@@ -3721,16 +3789,29 @@ class _SearchViewState extends State<_SearchView> {
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).pop(),
-                      child: const Icon(
-                        PhosphorIcons.arrowCircleLeft,
-                        size: 32,
-                        color: Colors.black,
+                  child: Row(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(context).pop(),
+                          child: const Icon(
+                            PhosphorIcons.arrowCircleLeft,
+                            size: 32,
+                            color: Colors.black,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        'Search',
+                        style: TextStyle(
+                          fontFamily: 'lufga-bold',
+                          fontSize: 24,
+                          // fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -3823,14 +3904,14 @@ class _SearchViewState extends State<_SearchView> {
                     padding: const EdgeInsets.symmetric(
                         vertical: 16, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.grey.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
+                        // BoxShadow(
+                        //   color: Colors.black12,
+                        //   blurRadius: 2,
+                        //   offset: Offset(0, 3),
+                        // ),
                       ],
                     ),
                     child: Column(
@@ -3942,7 +4023,7 @@ class _SearchViewState extends State<_SearchView> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 16),
+                                      horizontal: 16, vertical: 14.5),
                                   decoration: BoxDecoration(
                                     // color: Colors.white.withOpacity(0.8),
                                     color: Colors.white,
@@ -4279,6 +4360,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:roohbaru_app/screens/insights_screen.dart';
+import 'package:roohbaru_app/screens/profile_screen.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
 
 import '../blocs/auth_bloc.dart';
@@ -4372,6 +4454,12 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const InsightsScreen()),
+      );
+    } else if (index == 3) {
+      // ← HANDLES INSIGHTS TAB
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
       );
     } else {
       setState(() => _selectedIndex = index);
@@ -6263,6 +6351,173 @@ class _MoodPieChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MoodPieChartPainter old) {
     return old.data != data;
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/profile/profile_header.dart: [
+import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+class ProfileHeader extends StatelessWidget {
+  const ProfileHeader({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: const Icon(
+              PhosphorIcons.arrowCircleLeft,
+              size: 32,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Text(
+            'Profile',
+            style: TextStyle(
+              fontFamily: 'lufga-bold',
+              fontSize: 24,
+              // fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/profile/avatar_animation.dart: [
+import 'package:flutter/material.dart';
+
+typedef AnimationCompleted = void Function();
+
+class AvatarAnimation extends StatefulWidget {
+  final AnimationCompleted onCompleted;
+  const AvatarAnimation({Key? key, required this.onCompleted})
+      : super(key: key);
+
+  @override
+  _AvatarAnimationState createState() => _AvatarAnimationState();
+}
+
+class _AvatarAnimationState extends State<AvatarAnimation>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _shapeMoveUp;
+  late final Animation<Offset> _avatarSlideUp;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    // Shape starts immediately and moves the full duration
+    _shapeMoveUp = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -0.2),
+    ).animate(
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0.0, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    // Avatar waits a bit (20%), then moves up together with the shape
+    _avatarSlideUp = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _ctrl,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    _ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onCompleted();
+      }
+    });
+
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 250,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SlideTransition(
+            position: _shapeMoveUp,
+            child: Image.asset('assets/images/shape.png'),
+          ),
+          SlideTransition(
+            position: _avatarSlideUp,
+            child: Image.asset('assets/images/avatar.png'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+]
+
+roohbaru_app/lib/widgets/profile/profile_info.dart: [
+import 'package:flutter/material.dart';
+
+class ProfileInfo extends StatelessWidget {
+  final String name;
+  final String email;
+
+  const ProfileInfo({
+    Key? key,
+    required this.name,
+    required this.email,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          name,
+          style: const TextStyle(
+            fontFamily: 'lufga-bold',
+            color: Color(0xFF473623),
+            fontSize: 34,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          email,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.black54,
+          ),
+        ),
+      ],
+    );
   }
 }
 
