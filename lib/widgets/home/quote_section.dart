@@ -1,7 +1,7 @@
 // lib/widgets/quote_section.dart
 
 import 'package:flutter/material.dart';
-import '../services/quote_service.dart';
+import '../../services/quote_service.dart';
 
 class QuoteSection extends StatelessWidget {
   final Future<Quote> quoteFuture;

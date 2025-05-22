@@ -16,13 +16,16 @@ import '../blocs/auth_state.dart';
 import '../blocs/journal_bloc.dart';
 import '../blocs/journal_event.dart';
 import '../blocs/journal_state.dart';
+import '../blocs/home_ui_bloc.dart';
+import '../blocs/home_ui_event.dart';
+import '../blocs/home_ui_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
 import '../utils/mood_utils.dart';
-import '../widgets/navbar.dart';
-import '../widgets/header_row.dart';
-import '../widgets/greeting_section.dart';
-import '../widgets/quote_section.dart';
+import '../widgets/home/navbar.dart';
+import '../widgets/home/header_row.dart';
+import '../widgets/home/greeting_section.dart';
+import '../widgets/home/quote_section.dart';
 import '../widgets/custom_date_picker.dart'; // ← NEW import
 import 'intro_screen.dart';
 import 'new_entry_screen.dart';
@@ -38,9 +41,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<Quote> _quoteFuture;
-  int _selectedIndex = 0;
-  DateTime? _selectedDate; // ← track the picked date
-
   static const _defaultBg = defaultMoodBackground;
 
   @override
@@ -63,24 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return words.take(limit).join(' ') + '...';
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showCustomDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDate = DateTime(picked.year, picked.month, picked.day);
-      });
-    }
-  }
-
-  void _resetDate() {
-    setState(() {
-      _selectedDate = null;
-    });
-  }
-
   void _onAddPressed() {
     Navigator.push(
       context,
@@ -90,127 +72,135 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _onItemSelected(int index) {
+  void _onItemSelected(int index, BuildContext innerCtx) {
     if (index == 1) {
       Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const SearchScreen()),
-      );
+          innerCtx, MaterialPageRoute(builder: (_) => const SearchScreen()));
     } else if (index == 2) {
-      // ← HANDLES INSIGHTS TAB
       Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const InsightsScreen()),
-      );
+          innerCtx, MaterialPageRoute(builder: (_) => const InsightsScreen()));
     } else if (index == 3) {
-      // ← HANDLES INSIGHTS TAB
       Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
+          innerCtx, MaterialPageRoute(builder: (_) => const ProfileScreen()));
     } else {
-      setState(() => _selectedIndex = index);
+      innerCtx.read<HomeUiBloc>().add(SelectTab(index));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (ctx, st) {
-        if (st is AuthUnauthenticated) {
-          Navigator.of(ctx).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const IntroScreen()),
-            (_) => false,
-          );
-        } else if (st is AuthError) {
-          ScaffoldMessenger.of(ctx)
-              .showSnackBar(SnackBar(content: Text(st.message)));
-        }
-      },
-      child: BlocBuilder<JournalBloc, JournalState>(
-        builder: (ctx, journalState) {
-          Color bg = _defaultBg;
-          List<JournalEntry> all = [];
-          if (journalState is JournalLoaded) {
-            all = journalState.entries;
-            if (all.isNotEmpty) {
-              bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
-            }
+    return BlocProvider<HomeUiBloc>(
+      create: (_) => HomeUiBloc(),
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (ctx, st) {
+          if (st is AuthUnauthenticated) {
+            Navigator.of(ctx).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const IntroScreen()),
+              (_) => false,
+            );
+          } else if (st is AuthError) {
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              SnackBar(content: Text(st.message)),
+            );
           }
+        },
+        child: BlocBuilder<JournalBloc, JournalState>(
+          builder: (journalCtx, journalState) {
+            // use the inner context (journalCtx) for reading HomeUiBloc
+            final uiState = journalCtx.watch<HomeUiBloc>().state;
+            final selectedIndex = uiState.selectedIndex;
+            final selectedDate = uiState.selectedDate;
 
-          return Scaffold(
-            backgroundColor: bg,
-            body: Stack(
-              children: [
-                Container(color: bg),
-                Positioned.fill(
-                  child: Image.asset(
-                    'assets/images/bg.png',
-                    fit: BoxFit.cover,
+            Color bg = _defaultBg;
+            List<JournalEntry> all = [];
+            if (journalState is JournalLoaded) {
+              all = journalState.entries;
+              if (all.isNotEmpty) {
+                bg = moodBackgroundColors[all.first.mood] ?? _defaultBg;
+              }
+            }
+
+            return Scaffold(
+              backgroundColor: bg,
+              body: Stack(
+                children: [
+                  Container(color: bg),
+                  Positioned.fill(
+                    child:
+                        Image.asset('assets/images/bg.png', fit: BoxFit.cover),
                   ),
-                ),
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // ← only this row is updated to toggle calendar/reset
-                          HeaderRow(
-                            onCalendarPressed: _pickDate,
-                            isDateSelected: _selectedDate != null,
-                            onReset: _resetDate,
-                            onLogoutPressed: () {
-                              context.read<AuthBloc>().add(SignOutRequested());
-                            },
-                          ),
-
-                          GreetingSection(greeting: _greeting),
-                          const SizedBox(height: 24),
-                          QuoteSection(quoteFuture: _quoteFuture),
-                          const SizedBox(height: 6),
-                          if (journalState is JournalLoading)
-                            const Center(child: CircularProgressIndicator())
-                          else if (journalState is JournalError)
-                            Center(child: Text(journalState.message))
-                          else if (all.isEmpty)
-                            const Center(child: Text('No entries yet.'))
-                          else
-                            ..._buildMonthlySections(all),
-                        ],
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            HeaderRow(
+                              onCalendarPressed: () async {
+                                final picked = await showCustomDatePicker(
+                                  context: journalCtx,
+                                  initialDate: selectedDate ?? DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  journalCtx
+                                      .read<HomeUiBloc>()
+                                      .add(PickDate(picked));
+                                }
+                              },
+                              isDateSelected: selectedDate != null,
+                              onReset: () => journalCtx
+                                  .read<HomeUiBloc>()
+                                  .add(const ResetDate()),
+                              onLogoutPressed: () => journalCtx
+                                  .read<AuthBloc>()
+                                  .add(SignOutRequested()),
+                            ),
+                            GreetingSection(greeting: _greeting),
+                            const SizedBox(height: 24),
+                            QuoteSection(quoteFuture: _quoteFuture),
+                            const SizedBox(height: 6),
+                            if (journalState is JournalLoading)
+                              const Center(child: CircularProgressIndicator())
+                            else if (journalState is JournalError)
+                              Center(child: Text(journalState.message))
+                            else if (all.isEmpty)
+                              const Center(child: Text('No entries yet.'))
+                            else
+                              ..._buildMonthlySections(all, selectedDate),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            bottomNavigationBar: Container(
-              color: bg,
-              child: CustomNavbar(
-                selectedIndex: _selectedIndex,
-                onItemSelected: _onItemSelected,
-                onAddPressed: _onAddPressed,
+                ],
               ),
-            ),
-          );
-        },
+              bottomNavigationBar: Container(
+                color: bg,
+                child: CustomNavbar(
+                  selectedIndex: selectedIndex,
+                  onItemSelected: (i) => _onItemSelected(i, journalCtx),
+                  onAddPressed: _onAddPressed,
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  List<Widget> _buildMonthlySections(List<JournalEntry> all) {
-    // If a date is selected, filter down and show only that day's entries
-    if (_selectedDate != null) {
+  List<Widget> _buildMonthlySections(
+      List<JournalEntry> all, DateTime? selectedDate) {
+    if (selectedDate != null) {
       final filtered = all.where((e) {
         final d = e.timestamp;
-        return d.year == _selectedDate!.year &&
-            d.month == _selectedDate!.month &&
-            d.day == _selectedDate!.day;
+        return d.year == selectedDate.year &&
+            d.month == selectedDate.month &&
+            d.day == selectedDate.day;
       }).toList();
 
-      final label =
-          DateFormat('d MMM yyyy').format(_selectedDate!).toLowerCase();
+      final label = DateFormat('d MMM yyyy').format(selectedDate).toLowerCase();
 
       return [
         Padding(
@@ -218,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               Text(
-                label, // header now shows the picked date
+                label,
                 style: const TextStyle(
                   fontSize: 20,
                   fontFamily: 'lufga-bold',
@@ -244,15 +234,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ];
     }
 
-    // Otherwise original month‐grouping
-    final Map<DateTime, List<JournalEntry>> byMonth = {};
+    final byMonth = <DateTime, List<JournalEntry>>{};
     for (var e in all) {
       final key = DateTime(e.timestamp.year, e.timestamp.month);
       byMonth.putIfAbsent(key, () => []).add(e);
     }
     final months = byMonth.keys.toList()..sort((a, b) => b.compareTo(a));
 
-    final List<Widget> sections = [];
+    final sections = <Widget>[];
     for (var month in months) {
       final label = DateFormat('MMMM yyyy').format(month);
       final entries = byMonth[month]!
@@ -264,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             children: [
               Text(
-                label.toLowerCase(), // original month label
+                label.toLowerCase(),
                 style: const TextStyle(
                   fontSize: 20,
                   fontFamily: 'lufga-bold',
@@ -297,7 +286,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildEntryItem(JournalEntry e) {
     final dow = DateFormat('EEE').format(e.timestamp).toLowerCase();
     final dayNum = DateFormat('d').format(e.timestamp);
-
     final imgs = e.attachments
         .where((a) => a.type == 'image' && File(a.url).existsSync())
         .map((a) => a.url)
