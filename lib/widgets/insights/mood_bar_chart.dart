@@ -1,10 +1,9 @@
-// lib/widgets/insights/mood_bar_chart.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 typedef CategoryTap = void Function(String category);
 
-class MoodBarChart extends StatelessWidget {
+class MoodBarChart extends StatefulWidget {
   final Map<String, int> data;
   final String? selectedCategory;
   final CategoryTap onCategoryTap;
@@ -17,106 +16,195 @@ class MoodBarChart extends StatelessWidget {
   });
 
   @override
+  State<MoodBarChart> createState() => _MoodBarChartState();
+}
+
+class _MoodBarChartState extends State<MoodBarChart>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<Animation<double>> _barAnimations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    // Initialize animations for each bar
+    _barAnimations = widget.data.entries.toList().asMap().entries.map((_) {
+      return Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+        ),
+      );
+    }).toList();
+
+    // Start animation after a slight delay
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _controller.forward();
+    });
+  }
+
+  @override
+  void didUpdateWidget(MoodBarChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.data != oldWidget.data) {
+      _controller.reset();
+      _barAnimations = widget.data.entries.toList().asMap().entries.map((_) {
+        return Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+          ),
+        );
+      }).toList();
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // 1) Compute both max and total
-    final maxValue =
-        data.values.isEmpty ? 1 : data.values.reduce((a, b) => a > b ? a : b);
+    final maxValue = widget.data.values.isEmpty
+        ? 1
+        : widget.data.values.reduce((a, b) => a > b ? a : b);
+    final total = widget.data.values.fold<int>(0, (sum, v) => sum + v);
 
-    final total = data.values.fold<int>(0, (sum, v) => sum + v);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12.0),
+      padding: const EdgeInsets.all(16.0),
+      // decoration: BoxDecoration(
+      //   borderRadius: BorderRadius.circular(24.0),
+      //   color: Colors.white.withOpacity(0.9),
+      //   boxShadow: [
+      //     BoxShadow(
+      //       color: Colors.black.withOpacity(0.05),
+      //       blurRadius: 20,
+      //       spreadRadius: 5,
+      //       offset: const Offset(0, 10),
+      //     ),
+      //   ],
+      //   border: Border.all(
+      //     color: Theme.of(context).brightness == Brightness.dark
+      //         ? Colors.white.withOpacity(0.1)
+      //         : Colors.grey.withOpacity(0.1),
+      //     width: 1,
+      //   ),
+      // ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24.0),
+        // color: Colors.white.withOpacity(0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            spreadRadius: 5,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        border: Border.all(
+          color: Colors.black,
+          width: 1,
+        ),
+      ),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children:
+                widget.data.entries.toList().asMap().entries.map((mapEntry) {
+              final index = mapEntry.key;
+              final entry = mapEntry.value;
+              final value = entry.value;
+              final heightRatio = total == 0 ? 0.0 : value / maxValue;
+              final shareRatio = total == 0 ? 0.0 : value / total;
+              final percentage = '${(shareRatio * 100).round()}%';
+              final isSelected = entry.key == widget.selectedCategory;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: data.entries.map((entry) {
-          final value = entry.value;
+              final baseColor = _getBarColor(entry.key);
+              final color = isSelected ? baseColor : baseColor.withOpacity(0.9);
+              final darkColor = _darken(baseColor, 0.15);
 
-          // 2) Height ratio: you can choose max-value scaling...
-          // final heightRatio = maxValue == 0 ? 0.0 : value / maxValue;
-
-          // ...or total-share scaling. Here we use total-share so bars reflect % of all entries:
-          final heightRatio = total == 0 ? 0.0 : value / total;
-
-          // 3) Share ratio for label
-          final shareRatio = total == 0 ? 0.0 : value / total;
-          final percentage = '${(shareRatio * 100).round()}%';
-
-          // pick your colors
-          final isSelected = entry.key == selectedCategory;
-          final base = _getBarColor(entry.key);
-          final color = isSelected ? base : base.withOpacity(0.85);
-          final dark = _darken(color, 0.2);
-
-          return GestureDetector(
-            onTap: () => onCategoryTap(entry.key),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Outer container for fixed height
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  height: 180,
-                  width: 60,
-                  alignment: Alignment.bottomCenter,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    // 4) Use heightRatio * maxInnerHeight
-                    height: 160 * heightRatio,
-                    width: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: LinearGradient(
-                        colors: [color, dark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => widget.onCategoryTap(entry.key),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 400),
+                        height:
+                            200 * (_barAnimations[index].value * heightRatio),
+                        margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16.0),
+                          gradient: LinearGradient(
+                            colors: [color, darkColor],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withOpacity(isSelected ? 0.4 : 0.2),
+                              blurRadius: isSelected ? 12 : 8,
+                              spreadRadius: isSelected ? 2 : 1,
+                              offset: const Offset(0, 4),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: AnimatedOpacity(
+                            opacity: heightRatio > 0.2 ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Text(
+                              percentage,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
+                                fontFamily: 'SF Pro Display',
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: color.withOpacity(0.6),
-                                blurRadius: 12,
-                                offset: const Offset(0, 5),
-                              )
-                            ]
-                          : [
-                              const BoxShadow(
-                                color: Colors.black26,
-                                blurRadius: 6,
-                                offset: Offset(0, 4),
-                              )
-                            ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      percentage,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                      const SizedBox(height: 12),
+                      Text(
+                        entry.key,
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white.withOpacity(0.9)
+                              : Colors.black.withOpacity(0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'SF Pro Text',
+                          letterSpacing: 0.2,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    entry.key,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white70
-                          : Colors.black87,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              );
+            }).toList(),
           );
-        }).toList(),
+        },
       ),
     );
   }
@@ -124,18 +212,20 @@ class MoodBarChart extends StatelessWidget {
   Color _getBarColor(String category) {
     switch (category.toLowerCase()) {
       case 'positive':
-        return const Color(0xFF00D26A);
+        return const Color(0xFF34C759); // Apple-inspired green
       case 'neutral':
-        return const Color(0xFFFAA937);
+        return const Color(0xFFFFCC00); // Vibrant yellow
       case 'negative':
-        return const Color(0xFFE84855);
+        return const Color(0xFFFF3B30); // Apple-inspired red
       default:
-        return Colors.grey;
+        return Colors.grey.shade400;
     }
   }
 
-  Color _darken(Color color, double amt) {
+  Color _darken(Color color, double amount) {
     final hsl = HSLColor.fromColor(color);
-    return hsl.withLightness((hsl.lightness - amt).clamp(0.0, 1.0)).toColor();
+    return hsl
+        .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
+        .toColor();
   }
 }
