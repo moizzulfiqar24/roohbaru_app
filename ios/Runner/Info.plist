@@ -22,6 +22,14 @@
 		</dict>
 	</array>
 	<!-- End of the Google Sign-in Section -->
+
+	<!-- Microphone & Speech permissions -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need access to your microphone to convert speech into text for journaling.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>We need access to speech recognition to transcribe your spoken journal entries.</string>
+
+
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

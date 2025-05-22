@@ -3,6 +3,8 @@
 
     <!-- Grant Internet access so your GROQ API calls can resolve -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Grant audio recording for speech-to-text -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <application
         android:label="roohbaru_app"

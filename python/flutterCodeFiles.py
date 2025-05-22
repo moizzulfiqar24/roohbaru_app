@@ -46,6 +46,6 @@ def write_code_files_to_text(parent_path, output_file='codeFiles.txt'):
 
 if __name__ == "__main__":
     # Set your actual folder path here
-    parent_folder = '/Users/moiz/Moiz/Coding/Flutter/IBA/Project/roohbaru_app/lib/screens'
+    parent_folder = '/Users/moiz/Moiz/Coding/Flutter/IBA/Project/roohbaru_app/lib'
     write_code_files_to_text(parent_folder)
     print("\n✅ All folders processed and code files written to codeFiles.txt.")

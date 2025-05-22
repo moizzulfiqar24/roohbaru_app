@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
 import 'package:flutter_svg/flutter_svg.dart'; // ✅ For SVG support
+import 'package:speech_to_text/speech_to_text.dart' as stt; // ✅ Speech-to-text
 
 import '../blocs/Journal/journal_bloc.dart';
 import '../models/journal_entry.dart';
@@ -28,15 +29,65 @@ class NewEntryScreen extends StatefulWidget {
 }
 
 class _NewEntryScreenState extends State<NewEntryScreen> {
+  // Text controllers & focus nodes
   final TextEditingController _titleCtrl = TextEditingController();
   final TextEditingController _contentCtrl = TextEditingController();
+  final FocusNode _titleFocus = FocusNode();
+  final FocusNode _contentFocus = FocusNode();
+
+  // File picker & storage
   final FileStorageService _fileService = FileStorageService();
   final ImagePicker _picker = ImagePicker();
 
+  // Speech-to-text
+  late stt.SpeechToText _speech;
+  bool _speechAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _speech = stt.SpeechToText();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize(
+      onStatus: (status) => debugPrint('STT status: $status'),
+      onError: (err) => debugPrint('STT error: $err'),
+    );
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechAvailable) return;
+    await _speech.listen(
+      localeId: 'en_US',
+      onResult: (result) {
+        final text = result.recognizedWords;
+        if (_titleFocus.hasFocus) {
+          _titleCtrl.text = '${_titleCtrl.text} $text';
+          _titleCtrl.selection =
+              TextSelection.collapsed(offset: _titleCtrl.text.length);
+        } else {
+          _contentCtrl.text = '${_contentCtrl.text} $text';
+          _contentCtrl.selection =
+              TextSelection.collapsed(offset: _contentCtrl.text.length);
+        }
+      },
+      listenMode: stt.ListenMode.dictation,
+    );
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+  }
+
   @override
   void dispose() {
+    _speech.stop();
     _titleCtrl.dispose();
     _contentCtrl.dispose();
+    _titleFocus.dispose();
+    _contentFocus.dispose();
     super.dispose();
   }
 
@@ -80,6 +131,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
       create: (ctx) => NewEntryBloc(ctx.read<JournalBloc>(), widget.userId),
       child: BlocListener<NewEntryBloc, NewEntryState>(
         listener: (ctx, state) {
+          // Navigate on successful submit
           if (state.status == NewEntryStatus.success && state.entry != null) {
             Navigator.of(ctx).pushReplacement(
               MaterialPageRoute(
@@ -87,10 +139,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
               ),
             );
           }
+          // Start/stop listening when mic toggles
+          if (state.isMicActive) {
+            _startListening();
+          } else {
+            _stopListening();
+          }
         },
         child: BlocBuilder<NewEntryBloc, NewEntryState>(
           builder: (blocCtx, state) {
-            // **NOTE**: use `blocCtx` here for dispatching
             return Scaffold(
               backgroundColor: const Color(0xFFf8eed5),
               body: Stack(
@@ -102,6 +159,7 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                   SafeArea(
                     child: Column(
                       children: [
+                        // Top bar
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
@@ -135,10 +193,13 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                             ],
                           ),
                         ),
+
+                        // Title field
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: TextField(
                             controller: _titleCtrl,
+                            focusNode: _titleFocus,
                             readOnly: !state.isEditing,
                             style: const TextStyle(
                               fontSize: 32,
@@ -159,11 +220,14 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                           ),
                         ),
                         const SizedBox(height: 2),
+
+                        // Content field
                         Expanded(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
                             child: TextField(
                               controller: _contentCtrl,
+                              focusNode: _contentFocus,
                               readOnly: !state.isEditing,
                               maxLines: null,
                               expands: true,
@@ -178,6 +242,8 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                             ),
                           ),
                         ),
+
+                        // Attachments preview (unchanged)
                         if (state.attachments.isNotEmpty)
                           SizedBox(
                             height: 100,
@@ -231,12 +297,15 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                               },
                             ),
                           ),
+
                         const SizedBox(height: 16),
                       ],
                     ),
                   ),
                 ],
               ),
+
+              // Bottom nav (unchanged)
               bottomNavigationBar: Padding(
                 padding: const EdgeInsets.fromLTRB(85, 0, 85, 45),
                 child: Container(
