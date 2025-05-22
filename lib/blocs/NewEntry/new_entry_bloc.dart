@@ -3,9 +3,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/journal_entry.dart';
-import 'journal_bloc.dart';
-import 'journal_event.dart';
+import '../../models/journal_entry.dart';
+import '../Journal/journal_bloc.dart';
+import '../Journal/journal_event.dart';
 import 'new_entry_event.dart';
 import 'new_entry_state.dart';
 

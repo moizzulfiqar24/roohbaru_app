@@ -6,10 +6,10 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
 import 'package:roohbaru_app/utils/mood_utils.dart';
 
-import '../blocs/insights_bloc.dart';
-import '../blocs/insights_event.dart';
-import '../blocs/insights_state.dart';
-import '../blocs/journal_bloc.dart';
+import '../blocs/Insights/insights_bloc.dart';
+import '../blocs/Insights/insights_event.dart';
+import '../blocs/Insights/insights_state.dart';
+import '../blocs/Journal/journal_bloc.dart';
 import '../widgets/insights/duration_selector.dart';
 import '../widgets/insights/analytics_card.dart';
 import '../widgets/insights/mood_bar_chart.dart';

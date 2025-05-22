@@ -1,7 +1,7 @@
 // lib/blocs/insights_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
-import '../blocs/insights_event.dart';
+import 'insights_event.dart';
 
 class InsightsState extends Equatable {
   final List<JournalEntry> allEntries;

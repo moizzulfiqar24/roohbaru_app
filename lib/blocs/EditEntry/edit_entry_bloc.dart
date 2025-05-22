@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../blocs/journal_bloc.dart';
-import '../blocs/journal_event.dart';
-import '../models/journal_entry.dart';
+import '../Journal/journal_bloc.dart';
+import '../Journal/journal_event.dart';
+import '../../models/journal_entry.dart';
 import 'edit_entry_event.dart';
 import 'edit_entry_state.dart';
 

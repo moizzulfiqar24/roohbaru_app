@@ -9,15 +9,15 @@ import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
 import 'package:flutter_svg/flutter_svg.dart'; // ✅ For SVG support
 
-import '../blocs/journal_bloc.dart';
+import '../blocs/Journal/journal_bloc.dart';
 import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
 import 'entry_detail_screen.dart';
 
 // BLoC imports
-import '../blocs/new_entry_bloc.dart';
-import '../blocs/new_entry_event.dart';
-import '../blocs/new_entry_state.dart';
+import '../blocs/NewEntry/new_entry_bloc.dart';
+import '../blocs/NewEntry/new_entry_event.dart';
+import '../blocs/NewEntry/new_entry_state.dart';
 
 class NewEntryScreen extends StatefulWidget {
   final String userId;

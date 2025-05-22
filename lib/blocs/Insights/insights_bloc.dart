@@ -1,9 +1,9 @@
 // lib/blocs/insights_bloc.dart
 import 'dart:async';
 import 'package:bloc/bloc.dart';
-import '../models/journal_entry.dart';
-import 'journal_bloc.dart';
-import 'journal_state.dart';
+import '../../models/journal_entry.dart';
+import '../Journal/journal_bloc.dart';
+import '../Journal/journal_state.dart';
 import 'insights_event.dart';
 import 'insights_state.dart';
 

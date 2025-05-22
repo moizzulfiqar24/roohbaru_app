@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../models/journal_entry.dart';
+import '../../models/journal_entry.dart';
 
 abstract class JournalState extends Equatable {
   @override

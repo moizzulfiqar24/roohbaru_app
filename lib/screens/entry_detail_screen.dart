@@ -8,9 +8,9 @@ import 'package:open_file/open_file.dart';
 import 'package:roohbaru_app/widgets/suggestion_card.dart';
 
 import '../utils/mood_utils.dart';
-import '../blocs/journal_bloc.dart';
-import '../blocs/journal_state.dart';
-import '../blocs/journal_event.dart';
+import '../blocs/Journal/journal_bloc.dart';
+import '../blocs/Journal/journal_state.dart';
+import '../blocs/Journal/journal_event.dart';
 import '../models/journal_entry.dart';
 import 'edit_entry_screen.dart';
 

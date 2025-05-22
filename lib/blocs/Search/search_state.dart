@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../models/journal_entry.dart';
+import '../../models/journal_entry.dart';
 
 class SearchState extends Equatable {
   final List<JournalEntry> allEntries;

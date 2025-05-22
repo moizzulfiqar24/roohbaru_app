@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../blocs/personality_bloc.dart';
-import '../../blocs/personality_state.dart';
-import '../../blocs/personality_event.dart';
+import '../../blocs/Personality/personality_bloc.dart';
+import '../../blocs/Personality/personality_state.dart';
+import '../../blocs/Personality/personality_event.dart';
 
 class PersonalitySelector extends StatelessWidget {
   const PersonalitySelector({Key? key}) : super(key: key);

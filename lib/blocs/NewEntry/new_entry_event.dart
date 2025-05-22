@@ -1,6 +1,6 @@
 // lib/blocs/new_entry_event.dart
 
-import '../models/journal_entry.dart';
+import '../../models/journal_entry.dart';
 
 abstract class NewEntryEvent {
   const NewEntryEvent();

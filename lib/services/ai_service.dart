@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
@@ -113,6 +114,7 @@ Only return strict JSON. No extra text.
     final raw = decoded['choices'][0]['message']['content'] as String;
 
     try {
+      log(pList);
       final jsonText = _extractJson(raw);
       final data = jsonDecode(jsonText);
       return AIResult(

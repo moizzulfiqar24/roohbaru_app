@@ -1,6 +1,6 @@
 // lib/blocs/insights_event.dart
 import 'package:equatable/equatable.dart';
-import '../models/journal_entry.dart';
+import '../../models/journal_entry.dart';
 
 /// Which time window is selected.
 enum DurationFilter { allTime, last30Days, last7Days }

@@ -12,8 +12,8 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
-import '../models/journal_entry.dart';
-import '../services/ai_service.dart';
+import '../../models/journal_entry.dart';
+import '../../services/ai_service.dart';
 import 'journal_event.dart';
 import 'journal_state.dart';
 

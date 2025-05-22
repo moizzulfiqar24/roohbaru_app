@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../blocs/insights_event.dart';
+import '../../blocs/Insights/insights_event.dart';
 
 class DurationSelector extends StatefulWidget {
   final DurationFilter current;

@@ -4,10 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'services/auth_service.dart';
-import 'blocs/auth_bloc.dart';
-import 'blocs/auth_event.dart';
-import 'blocs/auth_state.dart';
-import 'blocs/journal_bloc.dart';
+import 'blocs/Auth/auth_bloc.dart';
+import 'blocs/Auth/auth_event.dart';
+import 'blocs/Auth/auth_state.dart';
+import 'blocs/Journal/journal_bloc.dart';
 import 'screens/home_screen.dart';
 import 'screens/intro_screen.dart';
 

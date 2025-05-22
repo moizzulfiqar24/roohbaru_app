@@ -1,4 +1,4 @@
-import '../models/journal_entry.dart';
+import '../../models/journal_entry.dart';
 
 enum EditEntryStatus { initial, success }
 
