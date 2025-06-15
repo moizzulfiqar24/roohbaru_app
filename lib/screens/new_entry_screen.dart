@@ -325,12 +325,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       state.isEditing
-                          ? navbarNewEntry(
+                          ? NavbarNewEntry(
                               icon: PhosphorIcons.pencilSimple,
                               active: true,
                               onTap: () => _toggleEditing(blocCtx),
                             )
-                          : navbarNewEntry(
+                          : NavbarNewEntry(
                               iconWidget: SvgPicture.asset(
                                 'assets/icons/pencil-simple-slash.svg',
                                 width: 30,
@@ -341,12 +341,12 @@ class _NewEntryScreenState extends State<NewEntryScreen> {
                               active: false,
                               onTap: () => _toggleEditing(blocCtx),
                             ),
-                      navbarNewEntry(
+                      NavbarNewEntry(
                         icon: PhosphorIcons.image,
                         active: false,
                         onTap: () => _pickImages(blocCtx),
                       ),
-                      navbarNewEntry(
+                      NavbarNewEntry(
                         icon: state.isMicActive
                             ? PhosphorIcons.microphone
                             : PhosphorIcons.microphoneSlash,

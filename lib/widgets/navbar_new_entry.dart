@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:roohbaru_app/blocs/navbar_new_entry/navbar_new_entry_bloc.dart';
 
-class navbarNewEntry extends StatefulWidget {
-  const navbarNewEntry({
-    super.key,
+class NavbarNewEntry extends StatelessWidget {
+  const NavbarNewEntry({
+    Key? key,
     this.icon,
     this.iconWidget,
     required this.active,
     required this.onTap,
-  });
+  }) : super(key: key);
 
   final IconData? icon;
   final Widget? iconWidget;
@@ -15,68 +17,56 @@ class navbarNewEntry extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<navbarNewEntry> createState() => _navbarNewEntryState();
-}
-
-class _navbarNewEntryState extends State<navbarNewEntry>
-    with SingleTickerProviderStateMixin {
-  double _scale = 1.0;
-
-  void _onTapDown(TapDownDetails details) {
-    setState(() {
-      _scale = 0.9;
-    });
-  }
-
-  void _onTapUp(TapUpDetails details) {
-    setState(() {
-      _scale = 1.0;
-    });
-    widget.onTap();
-  }
-
-  void _onTapCancel() {
-    setState(() {
-      _scale = 1.0;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: _onTapDown,
-      onTapUp: _onTapUp,
-      onTapCancel: _onTapCancel,
-      child: AnimatedScale(
-        scale: _scale,
-        duration: const Duration(milliseconds: 150),
-        child: Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: widget.active
-                ? const Color(0xFFB6F09C)
-                : const Color(0xFFced4da),
-            // color: active ? const Color(0xFFB6F09C) : const Color(0xFFb1b1b1),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                spreadRadius: 1,
-                blurRadius: 5,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Center(
-            child: widget.iconWidget ??
-                Icon(
-                  widget.icon,
-                  size: 30,
-                  color: widget.active ? Colors.black : Colors.black54,
+    return BlocProvider<NavbarNewEntryBloc>(
+      create: (_) => NavbarNewEntryBloc(),
+      child: BlocBuilder<NavbarNewEntryBloc, NavbarNewEntryState>(
+        builder: (context, state) {
+          return GestureDetector(
+            onTapDown: (_) => context
+                .read<NavbarNewEntryBloc>()
+                .add(const NavbarNewEntryPressedDown()),
+            onTapUp: (_) {
+              context
+                  .read<NavbarNewEntryBloc>()
+                  .add(const NavbarNewEntryPressedUp());
+              onTap();
+            },
+            onTapCancel: () => context
+                .read<NavbarNewEntryBloc>()
+                .add(const NavbarNewEntryPressedCancel()),
+            child: AnimatedScale(
+              scale: state.scale,
+              duration: const Duration(milliseconds: 150),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFFB6F09C)
+                      : const Color(0xFFced4da),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-          ),
-        ),
+                child: Center(
+                  child: iconWidget ??
+                      Icon(
+                        icon,
+                        size: 30,
+                        color: active ? Colors.black : Colors.black54,
+                      ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
