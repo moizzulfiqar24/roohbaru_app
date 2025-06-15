@@ -1,11 +1,13 @@
+// lib/models/journal_entry.dart
+
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Attachment {
   final String url;
   final String name;
-  final String type; // e.g., 'image', 'pdf', 'doc'
-  final String? base64Data; // holds the image’s Base64 if present
+  final String type; // e.g. 'image', 'pdf', etc.
+  final String? base64Data;
 
   Attachment({
     required this.url,
@@ -43,12 +45,10 @@ class JournalEntry {
   final String content;
   final DateTime timestamp;
   final List<Attachment> attachments;
-
-  // NEW:
   final String sentiment;
   final String mood;
   final List<String> suggestions;
-  final String analysis; // ← New field
+  final String analysis;
 
   const JournalEntry({
     required this.id,
@@ -60,11 +60,12 @@ class JournalEntry {
     this.sentiment = '',
     this.mood = '',
     this.suggestions = const [],
-    this.analysis = '', // ← default
+    this.analysis = '',
   });
 
+  /// Create from Firestore document
   factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data()! as Map<String, dynamic>;
     return JournalEntry(
       id: doc.id,
       userId: data['userId'] as String,
@@ -78,22 +79,55 @@ class JournalEntry {
       mood: data['mood'] as String? ?? '',
       suggestions:
           List<String>.from(data['suggestions'] as List<dynamic>? ?? []),
-      analysis: data['analysis'] as String? ?? '', // ← read from Firestore
+      analysis: data['analysis'] as String? ?? '',
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'title': title,
-      'content': content,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'attachments': attachments.map((a) => a.toMap()).toList(),
-      'sentiment': sentiment,
-      'mood': mood,
-      'suggestions': suggestions,
-      'analysis': analysis, // ← write to Firestore
-    };
+  /// Serialize for Firestore
+  Map<String, dynamic> toMap() => {
+        'userId': userId,
+        'title': title,
+        'content': content,
+        'timestamp': Timestamp.fromDate(timestamp),
+        'attachments': attachments.map((a) => a.toMap()).toList(),
+        'sentiment': sentiment,
+        'mood': mood,
+        'suggestions': suggestions,
+        'analysis': analysis,
+      };
+
+  /// JSON serialization for caching
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
+        'title': title,
+        'content': content,
+        'timestamp': timestamp.toIso8601String(),
+        'attachments': attachments.map((a) => a.toMap()).toList(),
+        'sentiment': sentiment,
+        'mood': mood,
+        'suggestions': suggestions,
+        'analysis': analysis,
+      };
+
+  factory JournalEntry.fromJson(Map<String, dynamic> json) {
+    return JournalEntry(
+      id: json['id'] as String,
+      userId: json['userId'] as String,
+      title: json['title'] as String,
+      content: json['content'] as String,
+      timestamp: DateTime.parse(json['timestamp'] as String),
+      attachments: (json['attachments'] as List<dynamic>?)
+              ?.map((a) =>
+                  Attachment.fromMap(Map<String, dynamic>.from(a as Map)))
+              .toList() ??
+          [],
+      sentiment: json['sentiment'] as String? ?? '',
+      mood: json['mood'] as String? ?? '',
+      suggestions:
+          List<String>.from(json['suggestions'] as List<dynamic>? ?? []),
+      analysis: json['analysis'] as String? ?? '',
+    );
   }
 
   JournalEntry copyWith({
@@ -103,7 +137,7 @@ class JournalEntry {
     String? sentiment,
     String? mood,
     List<String>? suggestions,
-    String? analysis, // ← allow update
+    String? analysis,
   }) {
     return JournalEntry(
       id: id,
