@@ -35,7 +35,6 @@
 //   }
 // }
 
-
 // lib/screens/intro_screen.dart
 
 import 'dart:async';
