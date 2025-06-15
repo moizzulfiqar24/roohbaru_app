@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:roohbaru_app/screens/insights_screen.dart';
 import 'package:roohbaru_app/screens/profile_screen.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
+import 'package:roohbaru_app/screens/welcome_screen.dart';
 
 import '../blocs/Auth/auth_bloc.dart';
 import '../blocs/Auth/auth_event.dart';
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
         listener: (ctx, st) {
           if (st is AuthUnauthenticated) {
             Navigator.of(ctx).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const IntroScreen()),
+              MaterialPageRoute(builder: (_) => const WelcomeScreen()),
               (_) => false,
             );
           } else if (st is AuthError) {

@@ -1,8 +1,13 @@
 // lib/screens/welcome_screen.dart
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../blocs/Auth/auth_bloc.dart';
+import '../blocs/Auth/auth_event.dart';
+import '../blocs/Auth/auth_state.dart';
 import 'login_screen.dart';
 import 'signup_screen.dart';
+import 'home_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -14,11 +19,12 @@ class WelcomeScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // bg2.png on top of backgroundColor
+          // bg2.png on top of the solid background
           Image.asset(
             'assets/images/bg2.png',
             fit: BoxFit.cover,
           ),
+
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -26,7 +32,7 @@ class WelcomeScreen extends StatelessWidget {
                 children: [
                   const Spacer(flex: 3),
 
-                  // Title + subtitle
+                  // Title
                   const Text(
                     'Welcome.',
                     style: TextStyle(
@@ -37,94 +43,87 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 40),
+
+                  // Subtitle
                   const Text(
                     'select your preferred method to create an account here.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black,
-                        fontFamily: 'lufga-regular'),
+                      fontSize: 16,
+                      color: Colors.black,
+                      fontFamily: 'lufga-regular',
+                    ),
                   ),
 
                   const Spacer(flex: 2),
 
-                  // // Apple Sign-up
-                  // SizedBox(
-                  //   width: double.infinity,
-                  //   height: 50,
-                  //   child: ElevatedButton.icon(
-                  //     icon: const Icon(
-                  //       PhosphorIcons.appleLogo,
-                  //       size: 24,
-                  //       color: Colors.white,
-                  //     ),
-                  //     label: const Text('Sign up with apple'),
-                  //     onPressed: () {
-                  //       // TODO: hook up Apple sign-in
-                  //       Navigator.push(
-                  //         context,
-                  //         MaterialPageRoute(
-                  //             builder: (_) => const SignupScreen()),
-                  //       );
-                  //     },
-                  //     style: ElevatedButton.styleFrom(
-                  //       backgroundColor: Colors.black,
-                  //       foregroundColor: Colors.white,
-                  //       shape: RoundedRectangleBorder(
-                  //         borderRadius: BorderRadius.circular(8),
-                  //       ),
-                  //     ),
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 16),
-
-                  // Google Sign-up
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton.icon(
-                      icon: Image.asset(
-                        'assets/images/google.png',
-                        height: 24,
-                        width: 24,
-                      ),
-                      label: const Text(
-                        'Sign up with Google',
-                        style: TextStyle(fontFamily: "lufga-regular"),
-                      ),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
+                  // Google Sign-Up Button
+                  BlocConsumer<AuthBloc, AuthState>(
+                    listener: (ctx, state) {
+                      if (state is AuthAuthenticated) {
+                        Navigator.of(ctx).pushAndRemoveUntil(
                           MaterialPageRoute(
-                              builder: (_) => const SignupScreen()),
+                              builder: (_) => HomeScreen(user: state.user)),
+                          (_) => false,
                         );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      } else if (state is AuthError) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          SnackBar(content: Text(state.message)),
+                        );
+                      }
+                    },
+                    builder: (ctx, state) {
+                      if (state is AuthLoading) {
+                        return const SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          icon: Image.asset(
+                            'assets/images/google.png',
+                            height: 24,
+                            width: 24,
+                          ),
+                          label: const Text(
+                            'Sign up with Google',
+                            style: TextStyle(fontFamily: 'lufga-regular'),
+                          ),
+                          onPressed: () {
+                            ctx.read<AuthBloc>().add(GoogleSignInRequested());
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 
-                  // Email & Password Sign-up
+                  // Email & Password Sign-Up Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
                       icon: const Icon(
                         Icons.mail_rounded,
-                        color: Colors.black,
                         size: 22,
+                        color: Colors.black,
                       ),
                       label: const Text(
                         'Email and Password',
-                        style: TextStyle(fontFamily: "lufga-regular"),
+                        style: TextStyle(fontFamily: 'lufga-regular'),
                       ),
                       onPressed: () {
                         Navigator.push(
@@ -145,13 +144,13 @@ class WelcomeScreen extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // Already-a-user link
+                  // Already-a-user? Log in
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
                         'Already a user? ',
-                        style: TextStyle(fontFamily: "lufga-regular"),
+                        style: TextStyle(fontFamily: 'lufga-regular'),
                       ),
                       GestureDetector(
                         onTap: () {
@@ -165,9 +164,9 @@ class WelcomeScreen extends StatelessWidget {
                           'Log in',
                           style: TextStyle(
                             color: Colors.blue,
-                            fontWeight: FontWeight.bold,
                             // decoration: TextDecoration.underline,
-                            fontFamily: "lufga-regular",
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'lufga-regular',
                           ),
                         ),
                       ),
@@ -186,8 +185,9 @@ class WelcomeScreen extends StatelessWidget {
                             fontSize: 12, color: Colors.black54),
                         children: [
                           const TextSpan(
-                              text:
-                                  'by signing up to this app you agree with our '),
+                            text:
+                                'by signing up to this app you agree with our ',
+                          ),
                           TextSpan(
                             text: 'terms of use',
                             style: const TextStyle(
