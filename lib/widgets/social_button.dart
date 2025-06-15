@@ -19,7 +19,12 @@ class SocialButton extends StatelessWidget {
         child: Container(
           height: 48,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300, width: 1),
+            // color: ,
+            border: Border.all(
+              // color: Colors.grey.shade300,
+              color: Colors.black,
+              width: 1,
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(

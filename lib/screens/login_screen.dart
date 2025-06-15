@@ -73,8 +73,15 @@ class LoginScreen extends StatelessWidget {
                         const SizedBox(width: 8),
                         const Text(
                           'Log in',
+                          // style: TextStyle(
+                          //   fontSize: 32,
+                          //   fontWeight: FontWeight.bold,
+                          // ),
                           style: TextStyle(
-                              fontSize: 32, fontWeight: FontWeight.bold),
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'lufga-regular',
+                          ),
                         ),
                       ],
                     ),
@@ -155,17 +162,17 @@ class LoginScreen extends StatelessWidget {
                       },
                     ),
 
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // TODO: forgot password
-                        },
-                        child: const Text('Forgot password?'),
-                      ),
-                    ),
+                    // Align(
+                    //   alignment: Alignment.centerRight,
+                    //   child: TextButton(
+                    //     onPressed: () {
+                    //       // TODO: forgot password
+                    //     },
+                    //     child: const Text('Forgot password?'),
+                    //   ),
+                    // ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
 
                     // Log in button
                     BlocBuilder<AuthBloc, AuthState>(
@@ -203,19 +210,54 @@ class LoginScreen extends StatelessWidget {
                         Expanded(child: Divider()),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
+
+                    // BlocConsumer<AuthBloc, AuthState>(
+                    //   listener: (ctx3, state) {
+                    //     if (state is AuthAuthenticated) {
+                    //       Navigator.of(ctx3).pushAndRemoveUntil(
+                    //         MaterialPageRoute(
+                    //             builder: (_) => HomeScreen(user: state.user)),
+                    //         (_) => false,
+                    //       );
+                    //     }
+                    //   },
+                    //   builder: (ctx3, state) {
+                    //     if (state is AuthLoading) {
+                    //       return const SizedBox(
+                    //         width: double.infinity,
+                    //         height: 50,
+                    //         child: Center(child: CircularProgressIndicator()),
+                    //       );
+                    //     }
+                    //     return Row(
+                    //       children: [
+                    //         SocialButton(
+                    //           assetPath: 'assets/images/google.png',
+                    //           onTap: () => ctx3
+                    //               .read<AuthBloc>()
+                    //               .add(GoogleSignInRequested()),
+                    //         ),
+                    //       ],
+                    //     );
+                    //   },
+                    // ),
 
                     BlocConsumer<AuthBloc, AuthState>(
-                      listener: (ctx3, state) {
+                      listener: (ctx, state) {
                         if (state is AuthAuthenticated) {
-                          Navigator.of(ctx3).pushAndRemoveUntil(
+                          Navigator.of(ctx).pushAndRemoveUntil(
                             MaterialPageRoute(
                                 builder: (_) => HomeScreen(user: state.user)),
                             (_) => false,
                           );
+                        } else if (state is AuthError) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(content: Text(state.message)),
+                          );
                         }
                       },
-                      builder: (ctx3, state) {
+                      builder: (ctx, state) {
                         if (state is AuthLoading) {
                           return const SizedBox(
                             width: double.infinity,
@@ -223,26 +265,51 @@ class LoginScreen extends StatelessWidget {
                             child: Center(child: CircularProgressIndicator()),
                           );
                         }
-                        return Row(
-                          children: [
-                            SocialButton(
-                              assetPath: 'assets/images/google.png',
-                              onTap: () => ctx3
-                                  .read<AuthBloc>()
-                                  .add(GoogleSignInRequested()),
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            icon: Image.asset(
+                              'assets/images/google.png',
+                              height: 24,
+                              width: 24,
                             ),
-                          ],
+                            label: const Text(
+                              'Log In with Google',
+                              style: TextStyle(fontFamily: 'lufga-regular'),
+                            ),
+                            onPressed: () {
+                              ctx.read<AuthBloc>().add(GoogleSignInRequested());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.black,
+                              side: BorderSide(
+                                // color: Colors.grey.shade400,
+                                color: Colors.black54,
+                                width: 1.5,
+                              ),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         );
                       },
                     ),
 
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
 
                     // Link to Sign up
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text("Don't have an account? "),
+                        const Text(
+                          "Don't have an account? ",
+                          // style: TextStyle(fontFamily: 'lufga-regular'),
+                        ),
                         GestureDetector(
                           onTap: () => Navigator.push(
                             context,
@@ -251,9 +318,15 @@ class LoginScreen extends StatelessWidget {
                           ),
                           child: const Text(
                             'Sign up',
+                            // style: TextStyle(
+                            //   color: Colors.blue,
+                            //   fontWeight: FontWeight.w600,
+                            // ),
                             style: TextStyle(
                               color: Colors.blue,
-                              fontWeight: FontWeight.w600,
+                              // decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'lufga-regular',
                             ),
                           ),
                         ),

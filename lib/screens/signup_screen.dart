@@ -229,6 +229,41 @@ class SignupScreen extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     // Wrap SocialButton in a Row so its internal Expanded has a Flex parent
+                    // BlocConsumer<AuthBloc, AuthState>(
+                    //   listener: (ctx, state) {
+                    //     if (state is AuthAuthenticated) {
+                    //       Navigator.of(ctx).pushAndRemoveUntil(
+                    //         MaterialPageRoute(
+                    //             builder: (_) => HomeScreen(user: state.user)),
+                    //         (_) => false,
+                    //       );
+                    //     } else if (state is AuthError) {
+                    //       ScaffoldMessenger.of(ctx).showSnackBar(
+                    //         SnackBar(content: Text(state.message)),
+                    //       );
+                    //     }
+                    //   },
+                    //   builder: (ctx, state) {
+                    //     if (state is AuthLoading) {
+                    //       return const SizedBox(
+                    //         width: double.infinity,
+                    //         height: 50,
+                    //         child: Center(child: CircularProgressIndicator()),
+                    //       );
+                    //     }
+                    //     return Row(
+                    //       children: [
+                    //         SocialButton(
+                    //           assetPath: 'assets/images/google.png',
+                    //           onTap: () => ctx
+                    //               .read<AuthBloc>()
+                    //               .add(GoogleSignInRequested()),
+                    //         ),
+                    //       ],
+                    //     );
+                    //   },
+                    // ),
+
                     BlocConsumer<AuthBloc, AuthState>(
                       listener: (ctx, state) {
                         if (state is AuthAuthenticated) {
@@ -251,15 +286,37 @@ class SignupScreen extends StatelessWidget {
                             child: Center(child: CircularProgressIndicator()),
                           );
                         }
-                        return Row(
-                          children: [
-                            SocialButton(
-                              assetPath: 'assets/images/google.png',
-                              onTap: () => ctx
-                                  .read<AuthBloc>()
-                                  .add(GoogleSignInRequested()),
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            icon: Image.asset(
+                              'assets/images/google.png',
+                              height: 24,
+                              width: 24,
                             ),
-                          ],
+                            label: const Text(
+                              'Sign up with Google',
+                              style: TextStyle(fontFamily: 'lufga-regular'),
+                            ),
+                            onPressed: () {
+                              ctx.read<AuthBloc>().add(GoogleSignInRequested());
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.black,
+                              side: BorderSide(
+                                // color: Colors.grey.shade400,
+                                color: Colors.black54,
+                                width: 1.5,
+                              ),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
                         );
                       },
                     ),
@@ -284,7 +341,7 @@ class SignupScreen extends StatelessWidget {
                             'Log in',
                             style: TextStyle(
                               color: Colors.blue,
-                              decoration: TextDecoration.underline,
+                              // decoration: TextDecoration.underline,
                               fontWeight: FontWeight.bold,
                               fontFamily: 'lufga-regular',
                             ),
