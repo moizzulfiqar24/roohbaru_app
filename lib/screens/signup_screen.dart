@@ -10,7 +10,6 @@ import '../blocs/Signup/signup_form_bloc.dart';
 import '../blocs/Signup/signup_form_event.dart';
 import '../blocs/Signup/signup_form_state.dart';
 import '../widgets/primary_button.dart';
-import '../widgets/social_button.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
