@@ -1,4 +1,3 @@
-// lib/blocs/insights_bloc.dart
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import '../../models/journal_entry.dart';

@@ -1,5 +1,3 @@
-// lib/blocs/home_ui_state.dart
-
 class HomeUiState {
   /// Which nav tab is selected (0=Home,1=Search,…).
   final int selectedIndex;

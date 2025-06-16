@@ -1,7 +1,4 @@
-// lib/screens/home_screen.dart
-
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -10,7 +7,6 @@ import 'package:roohbaru_app/screens/insights_screen.dart';
 import 'package:roohbaru_app/screens/profile_screen.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
 import 'package:roohbaru_app/screens/welcome_screen.dart';
-
 import '../blocs/Auth/auth_bloc.dart';
 import '../blocs/Auth/auth_event.dart';
 import '../blocs/Auth/auth_state.dart';
@@ -19,7 +15,6 @@ import '../blocs/Journal/journal_event.dart';
 import '../blocs/Journal/journal_state.dart';
 import '../blocs/Home/home_ui_bloc.dart';
 import '../blocs/Home/home_ui_event.dart';
-import '../blocs/Home/home_ui_state.dart';
 import '../models/journal_entry.dart';
 import '../services/quote_service.dart';
 import '../utils/mood_utils.dart';
@@ -27,8 +22,7 @@ import '../widgets/home/navbar.dart';
 import '../widgets/home/header_row.dart';
 import '../widgets/home/greeting_section.dart';
 import '../widgets/home/quote_section.dart';
-import '../widgets/custom_date_picker.dart'; // ← NEW import
-import 'intro_screen.dart';
+import '../widgets/custom_date_picker.dart'; 
 import 'new_entry_screen.dart';
 import 'entry_detail_screen.dart';
 

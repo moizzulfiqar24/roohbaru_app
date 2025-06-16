@@ -2,7 +2,6 @@ import 'package:bloc/bloc.dart';
 import 'personality_event.dart';
 import 'personality_state.dart';
 
-/// All available AI personalities.
 class PersonalityBloc extends Bloc<PersonalityEvent, PersonalityState> {
   static const List<String> allPersonalities = [
     'Supportive',

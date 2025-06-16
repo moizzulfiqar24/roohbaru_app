@@ -1,12 +1,10 @@
-// lib/models/journal_entry.dart
-
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Attachment {
   final String url;
   final String name;
-  final String type; // e.g. 'image', 'pdf', etc.
+  final String type; 
   final String? base64Data;
 
   Attachment({

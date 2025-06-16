@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../blocs/Auth/auth_bloc.dart';
 import '../blocs/Auth/auth_state.dart';
 import '../blocs/Personality/personality_bloc.dart';
@@ -9,8 +8,6 @@ import '../widgets/profile/profile_header.dart';
 import '../widgets/profile/avatar_animation.dart';
 import '../widgets/profile/profile_info.dart';
 import '../widgets/profile/personality_selector.dart';
-
-// New imports for the ProfileBloc
 import '../blocs/Profile/profile_bloc.dart';
 import '../blocs/Profile/profile_event.dart';
 import '../blocs/Profile/profile_state.dart';

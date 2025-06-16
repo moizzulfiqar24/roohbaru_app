@@ -1,5 +1,3 @@
-// lib/widgets/greeting_section.dart
-
 import 'package:flutter/material.dart';
 
 class GreetingSection extends StatelessWidget {

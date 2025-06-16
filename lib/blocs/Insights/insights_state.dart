@@ -1,4 +1,3 @@
-// lib/blocs/insights_state.dart
 import 'package:equatable/equatable.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
 import 'insights_event.dart';

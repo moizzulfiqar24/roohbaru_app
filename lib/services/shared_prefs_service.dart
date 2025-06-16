@@ -1,5 +1,3 @@
-// lib/services/shared_prefs_service.dart
-
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/journal_entry.dart';

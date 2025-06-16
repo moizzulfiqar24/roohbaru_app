@@ -1,4 +1,3 @@
-// lib/blocs/insights_event.dart
 import 'package:equatable/equatable.dart';
 import '../../models/journal_entry.dart';
 

@@ -1,17 +1,14 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:open_file/open_file.dart';
 import 'package:roohbaru_app/widgets/suggestion_card.dart';
-
 import '../utils/mood_utils.dart';
 import '../blocs/Journal/journal_bloc.dart';
 import '../blocs/Journal/journal_state.dart';
 import '../blocs/Journal/journal_event.dart';
-import '../models/journal_entry.dart';
 import 'edit_entry_screen.dart';
 
 class EntryDetailScreen extends StatelessWidget {

@@ -1,5 +1,3 @@
-// lib/blocs/journal_bloc.dart
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';

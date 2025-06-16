@@ -1,5 +1,3 @@
-// lib/blocs/new_entry_bloc.dart
-
 import 'package:bloc/bloc.dart';
 import 'package:uuid/uuid.dart';
 

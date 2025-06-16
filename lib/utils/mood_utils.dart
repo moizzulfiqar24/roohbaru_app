@@ -1,5 +1,3 @@
-// lib/utils/mood_utils.dart
-
 import 'package:flutter/material.dart';
 
 /// Default background color when no mood match is found.

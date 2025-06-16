@@ -1,5 +1,3 @@
-// lib/blocs/home_ui_bloc.dart
-
 import 'package:bloc/bloc.dart';
 import 'home_ui_event.dart';
 import 'home_ui_state.dart';

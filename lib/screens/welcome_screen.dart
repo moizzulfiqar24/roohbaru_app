@@ -1,7 +1,5 @@
-// lib/screens/welcome_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../blocs/Auth/auth_bloc.dart';
 import '../blocs/Auth/auth_event.dart';
 import '../blocs/Auth/auth_state.dart';

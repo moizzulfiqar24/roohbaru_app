@@ -6,7 +6,6 @@ abstract class PersonalityEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Toggle a single personality on/off.
 class TogglePersonality extends PersonalityEvent {
   final String personality;
   const TogglePersonality(this.personality);

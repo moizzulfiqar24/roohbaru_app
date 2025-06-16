@@ -1,5 +1,3 @@
-// lib/blocs/home_ui_event.dart
-
 /// Base class for all Home UI events
 abstract class HomeUiEvent {
   const HomeUiEvent();

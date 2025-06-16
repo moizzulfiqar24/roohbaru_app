@@ -8,7 +8,7 @@ class AIResult {
   final String mood;
   final String song;
   final String movie;
-  final String analysis; // ← New field
+  final String analysis; 
 
   AIResult({
     required this.sentiment,

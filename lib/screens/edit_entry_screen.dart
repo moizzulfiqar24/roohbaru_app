@@ -1,20 +1,14 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:roohbaru_app/widgets/navbar_new_entry.dart';
 import 'package:open_file/open_file.dart';
-import 'package:uuid/uuid.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart'; // ✅ Phosphor icons
-import 'package:flutter_svg/flutter_svg.dart'; // ✅ For SVG support
-
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../blocs/Journal/journal_bloc.dart';
-import '../blocs/Journal/journal_event.dart';
 import '../models/journal_entry.dart';
 import '../services/file_storage_service.dart';
-
-// Newly added BLoC imports:
 import '../blocs/EditEntry/edit_entry_bloc.dart';
 import '../blocs/EditEntry/edit_entry_event.dart';
 import '../blocs/EditEntry/edit_entry_state.dart';

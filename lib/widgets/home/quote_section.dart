@@ -1,5 +1,3 @@
-// lib/widgets/quote_section.dart
-
 import 'package:flutter/material.dart';
 import '../../services/quote_service.dart';
 

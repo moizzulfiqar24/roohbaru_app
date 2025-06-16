@@ -1,5 +1,3 @@
-// lib/blocs/new_entry_state.dart
-
 import '../../models/journal_entry.dart';
 
 enum NewEntryStatus { initial, error, success }

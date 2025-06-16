@@ -1,15 +1,12 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-
 import '../blocs/Auth/auth_bloc.dart';
 import '../blocs/Auth/auth_state.dart';
 import '../blocs/Journal/journal_bloc.dart';
 import '../blocs/Search/search_bloc.dart';
 import '../blocs/Search/search_event.dart';
-import '../blocs/Search/search_state.dart';
 import '../models/journal_entry.dart';
 import '../utils/mood_utils.dart';
 import '../widgets/custom_date_picker.dart';
