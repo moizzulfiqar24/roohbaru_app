@@ -97,7 +97,12 @@ Choose your target (Android, iOS, macOS, Web, etc.)
 
 ## 📸 Screenshots
 
-![Screenshot 1](assets/images/readme_scs/1.png)
+<!-- ![Screenshot 1](assets/images/readme_scs/1.png)
 ![Screenshot 2](assets/images/readme_scs/2.png)
 ![Screenshot 3](assets/images/readme_scs/3.png)
-![Screenshot 4](assets/images/readme_scs/4.png)
+![Screenshot 4](assets/images/readme_scs/4.png) -->
+
+![Screenshot First](assets/images/readme_scs/fir.png)
+![Screenshot Second](assets/images/readme_scs/sec.png)
+![Screenshot Third](assets/images/readme_scs/thi.png)
+![Screenshot Forth](assets/images/readme_scs/for.png)
