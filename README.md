@@ -97,7 +97,7 @@ Choose your target (Android, iOS, macOS, Web, etc.)
 
 ## 📸 Screenshots
 
-![Screenshot 1](assets/images/readme_scs/1.png)
+<!-- ![Screenshot 1](assets/images/readme_scs/1.png)
 ![Screenshot 2](assets/images/readme_scs/2.png)
 ![Screenshot 3](assets/images/readme_scs/3.png)
-![Screenshot 4](assets/images/readme_scs/4.png)
+![Screenshot 4](assets/images/readme_scs/4.png) -->
