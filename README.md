@@ -97,14 +97,11 @@ Choose your target (Android, iOS, macOS, Web, etc.)
 
 ## 📸 Screenshots
 
-<!-- You can insert screenshots here -->
-
-<!-- ![Home](assets/screenshots/home.png) -->
-
-## 🤖 Tech Stack
-
-* **Flutter & Dart**
-* **Firebase (Auth, Firestore)**
-* **AI (via HTTP API)**
-* **SharedPreferences, Speech-to-Text**
-* **flutter\_bloc** for state management
+![Screenshot 1](assets/images/readme_scs/1.png)
+![Screenshot 2](assets/images/readme_scs/2.png)
+![Screenshot 3](assets/images/readme_scs/3.png)
+![Screenshot 4](assets/images/readme_scs/4.png)
+![Screenshot 5](assets/images/readme_scs/5.png)
+![Screenshot 6](assets/images/readme_scs/6.png)
+![Screenshot 7](assets/images/readme_scs/7.png)
+![Screenshot 8](assets/images/readme_scs/8.png)
