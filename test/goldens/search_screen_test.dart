@@ -1,5 +1,3 @@
-// test/goldens/search_screen_test.dart
-
 import 'package:alchemist/alchemist.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -15,8 +13,6 @@ import 'package:roohbaru_app/blocs/Journal/journal_bloc.dart';
 import 'package:roohbaru_app/blocs/Journal/journal_event.dart';
 import 'package:roohbaru_app/blocs/Journal/journal_state.dart';
 import 'package:roohbaru_app/screens/search_screen.dart';
-
-// ─── Mocks & Fakes ───────────────────────────────────────────────────────────────
 
 class MockJournalBloc extends MockBloc<JournalEvent, JournalState>
     implements JournalBloc {}

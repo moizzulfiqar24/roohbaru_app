@@ -1,5 +1,3 @@
-// test/goldens/insights_screen_test.dart
-
 import 'package:alchemist/alchemist.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -13,11 +11,9 @@ import 'package:roohbaru_app/blocs/Journal/journal_state.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
 import 'package:roohbaru_app/screens/insights_screen.dart';
 
-/// 1) Use MockBloc so the abstract `on<>`, `onEvent`, etc. are handled for you.
 class MockJournalBloc extends MockBloc<JournalEvent, JournalState>
     implements JournalBloc {}
 
-/// 2) Fake implementations for when we stub methods with mocktail.
 class FakeJournalEvent extends Fake implements JournalEvent {}
 
 class FakeJournalState extends Fake implements JournalState {}

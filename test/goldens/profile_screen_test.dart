@@ -1,5 +1,3 @@
-// test/goldens/profile_screen_test.dart
-
 import 'package:alchemist/alchemist.dart';
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
@@ -17,14 +15,11 @@ import 'package:roohbaru_app/blocs/Profile/profile_state.dart';
 import 'package:roohbaru_app/blocs/Personality/personality_bloc.dart';
 import 'package:roohbaru_app/screens/profile_screen.dart';
 
-// ─── Fakes & Mocks ───────────────────────────────────────────────────────────────
-
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
 class MockProfileBloc extends MockBloc<ProfileEvent, ProfileState>
     implements ProfileBloc {}
 
-// Needed by mocktail to stub our blocs
 class _FakeAuthEvent extends Fake implements AuthEvent {}
 
 class _FakeAuthState extends Fake implements AuthState {}
@@ -36,7 +31,6 @@ class _FakeProfileState extends Fake implements ProfileState {}
 class MockUser extends Mock implements User {}
 
 void main() {
-  // Register all fake event/state types so mocktail doesn’t complain
   setUpAll(() {
     registerFallbackValue(_FakeAuthEvent());
     registerFallbackValue(_FakeAuthState());
@@ -87,7 +81,6 @@ void main() {
       'full profile – name, email, personality grid',
       fileName: 'profile_screen',
       builder: () => GoldenTestGroup(
-        // match iPhone 16 Pro Max portrait
         scenarioConstraints: BoxConstraints.tight(Size(430, 932)),
         children: [
           GoldenTestScenario(

@@ -1,5 +1,3 @@
-// test/goldens/signup_screen_test.dart
-
 import 'package:alchemist/alchemist.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +9,6 @@ import 'package:roohbaru_app/blocs/Auth/auth_bloc.dart';
 import 'package:roohbaru_app/blocs/Signup/signup_form_bloc.dart';
 import 'package:roohbaru_app/services/auth_service.dart';
 
-/// A no-op AuthService to avoid touching FirebaseAuth.instance
 class DummyAuthService implements AuthService {
   @override
   User? get currentUser => null;

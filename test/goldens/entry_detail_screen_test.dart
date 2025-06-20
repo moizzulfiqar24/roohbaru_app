@@ -1,5 +1,3 @@
-// test/goldens/entry_detail_screen_test.dart
-
 import 'dart:async';
 
 import 'package:alchemist/alchemist.dart';
@@ -15,7 +13,7 @@ import 'package:roohbaru_app/blocs/Journal/journal_state.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
 import 'package:roohbaru_app/screens/entry_detail_screen.dart';
 
-/// A MockBloc for JournalBloc so we don’t have to implement `on`/`onEvent`/etc.
+/// A MockBloc for JournalBloc so we don’t have to implement onEvent
 class MockJournalBloc extends MockBloc<JournalEvent, JournalState>
     implements JournalBloc {}
 

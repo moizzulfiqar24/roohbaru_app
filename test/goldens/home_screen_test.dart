@@ -17,14 +17,11 @@ import 'package:roohbaru_app/blocs/Journal/journal_state.dart';
 import 'package:roohbaru_app/models/journal_entry.dart';
 import 'package:roohbaru_app/screens/home_screen.dart';
 
-// -- Mocks & Fakes --------------------------------------------------------------------------------------------------
-
 class MockJournalBloc extends MockBloc<JournalEvent, JournalState>
     implements JournalBloc {}
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
 
-// fallback values for mocktail / bloc_test
 class _FakeJournalEvent extends Fake implements JournalEvent {}
 
 class _FakeJournalState extends Fake implements JournalState {}
@@ -33,7 +30,6 @@ class _FakeAuthEvent extends Fake implements AuthEvent {}
 
 class _FakeAuthState extends Fake implements AuthState {}
 
-// We only care about `uid`, so stub a User:
 class MockUser extends Mock implements User {}
 
 void main() {
@@ -94,7 +90,6 @@ void main() {
       'renders home screen with one entry and quote spinner',
       fileName: 'home_screen',
       builder: () => GoldenTestGroup(
-        // mimic an iPhone 16 Pro Max in portrait (430×932 logical pixels)
         scenarioConstraints: BoxConstraints.tight(Size(430, 932)),
         children: [
           GoldenTestScenario(
@@ -106,7 +101,7 @@ void main() {
               ],
               child: MaterialApp(
                 home: HomeScreen(user: fakeUser),
-                // remove the debug banner
+
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(useMaterial3: true),
               ),

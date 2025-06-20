@@ -9,7 +9,7 @@ void main() {
     fileName: 'intro_screen',
     builder: () => MaterialApp(
       home: Center(
-        // Constrain to your device’s screen size:
+
         child: ConstrainedBox(
           constraints: BoxConstraints.tight(Size(430, 932)),
           child: const IntroScreen(),
